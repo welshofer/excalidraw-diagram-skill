@@ -3,6 +3,7 @@ name = "excalidraw-render"
 version = "0.2.0"
 requires-python = ">=3.11"
 dependencies = [
+    "pillow>=12.2.0",
     # (4.8) Pinned to <2.0.0 to prevent breaking API changes.
     # Minimum 1.40.0 required for sync_api, set_content, and evaluate with args.
     "playwright>=1.40.0,<2.0.0",
@@ -12,6 +13,9 @@ dependencies = [
 dev = [
     "pytest>=7.0.0",
     "ruff>=0.1.0",
+]
+tools = [
+    "Pillow>=10.0.0",
 ]
 
 [project.scripts]

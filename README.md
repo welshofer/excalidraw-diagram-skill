@@ -76,12 +76,52 @@ uv run python render_excalidraw.py diagram.excalidraw --url
 uv run python render_excalidraw.py diagram.excalidraw --format presentation
 ```
 
+## How It Works
+
+The skill uses an iterative **render-fix loop** where the agent generates a diagram, renders it, inspects the result for issues, and fixes them -- all automatically.
+
+![Render-Fix Loop](examples/render-fix-loop.gif)
+
+### Render Server Mode
+
+For intensive iteration sessions, start a persistent render server to eliminate browser cold-start overhead:
+
+```bash
+cd .claude/skills/excalidraw-diagram/references
+uv run python render_excalidraw.py --server
+# Server listens on http://127.0.0.1:9120
+# POST /render with JSON body to render diagrams
+# POST /shutdown to stop
+```
+
+### Offline Mode (Vendor Bundle)
+
+For air-gapped environments or faster renders without CDN latency:
+
+```bash
+cd .claude/skills/excalidraw-diagram/references
+python vendor_excalidraw.py     # Downloads and bundles locally (requires npm)
+# The render script auto-detects vendor/ and uses it
+```
+
+### Diagram Linting
+
+Catch layout issues before rendering:
+
+```bash
+uv run python lint_excalidraw.py diagram.excalidraw           # Text report
+uv run python lint_excalidraw.py diagram.excalidraw --json     # JSON output
+uv run python lint_excalidraw.py diagram.excalidraw --fix      # Auto-fix issues
+```
+
 ## Examples
 
 See the `examples/` directory for sample `.excalidraw` files:
 
 - **simple-flow.excalidraw** -- A basic Start -> Process -> End flow with semantic colors
 - **decision-flow.excalidraw** -- A decision tree with diamond decision point and branching paths
+- **all-patterns.excalidraw** -- Visual Pattern Library showing linear flow, fan-out, decision branch, convergence, hierarchy (tree), and bidirectional/cycle patterns
+- **before-bad-layout.excalidraw** / **after-good-layout.excalidraw** -- Before/after comparison showing the difference between a naive layout and a visual argument layout
 
 ## Customize Colors
 
@@ -132,14 +172,21 @@ excalidraw-diagram/
   examples/
     simple-flow.excalidraw          # Basic flow example
     decision-flow.excalidraw        # Decision tree example
+    all-patterns.excalidraw         # Visual Pattern Library showcase
+    before-bad-layout.excalidraw    # Before: naive layout
+    after-good-layout.excalidraw    # After: visual argument layout
+    render-fix-loop.gif             # Animated demo of the render-fix loop
   references/
     color-palette.md                # Brand colors (edit this to customize)
-    element-templates.md            # JSON templates for each element type
+    element-templates.md            # JSON templates + compound shape icons
     json-schema.md                  # Excalidraw JSON format reference
-    render_excalidraw.py            # Render .excalidraw to PNG/SVG/HTML
+    render_excalidraw.py            # Render .excalidraw to PNG/SVG/HTML + server mode
     validate_excalidraw.py          # Standalone validation (no Playwright)
+    lint_excalidraw.py              # Layout linter with auto-fix
+    vendor_excalidraw.py            # Download Excalidraw for offline use
+    generate_demo_gif.py            # Generate the render-fix loop GIF
     render_template.html            # Browser template for rendering
-    pyproject.toml                  # Python dependencies (playwright)
+    pyproject.toml                  # Python dependencies (playwright, pillow)
     uv.lock                         # Locked dependency versions
     tests/                          # Pytest test suite
   .github/

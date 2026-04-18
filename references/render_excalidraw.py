@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.server
 import json
 import logging
 import os
@@ -21,6 +22,7 @@ import platform
 import socket
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -42,6 +44,7 @@ DEFAULT_MAX_ELEMENTS = 5000  # (5.6)
 WARN_ELEMENTS = 2500
 MAX_HEIGHT_DEFAULT = 10000  # (3.4)
 EXCALIDRAW_VERSION = "0.18.0"  # Pinned version (1.2)
+VENDOR_DIR = Path(__file__).parent / "vendor"  # (1.10) Local bundle directory
 DANGEROUS_URL_SCHEMES = ("javascript:", "data:", "vbscript:")  # (5.5)
 SYSTEM_DIRS = ("/etc", "/var", "/usr", "/System", "/Library")  # (5.3)
 
@@ -377,6 +380,130 @@ def _write_cache(excalidraw_path: Path, raw: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Vendor bundle detection (1.10) and integrity verification (5.10)
+# ---------------------------------------------------------------------------
+def _vendor_bundle_available() -> bool:
+    """Check if a vendored Excalidraw bundle exists and passes integrity check."""
+    bundle_path = VENDOR_DIR / "excalidraw-bundle.js"
+    integrity_path = VENDOR_DIR / "integrity.json"
+    if not bundle_path.exists() or not integrity_path.exists():
+        return False
+    try:
+        integrity = json.loads(integrity_path.read_text(encoding="utf-8"))
+        content = bundle_path.read_bytes()
+        actual_sha256 = hashlib.sha256(content).hexdigest()
+        if actual_sha256 != integrity.get("sha256"):
+            logger.warning("Vendor bundle integrity check failed -- falling back to CDN")
+            return False
+        return True
+    except (json.JSONDecodeError, OSError) as e:
+        logger.warning(f"Cannot verify vendor bundle: {e}")
+        return False
+
+
+def _get_vendor_sri() -> str | None:
+    """Get the SRI hash for the vendored bundle (5.10)."""
+    integrity_path = VENDOR_DIR / "integrity.json"
+    try:
+        integrity = json.loads(integrity_path.read_text(encoding="utf-8"))
+        return integrity.get("sri")
+    except (json.JSONDecodeError, OSError, FileNotFoundError):
+        return None
+
+
+def _resolve_template_html() -> str:
+    """Load the render template, using vendored bundle if available (1.10, 5.10).
+
+    If vendor/excalidraw-bundle.js exists and passes integrity check,
+    the template is rewritten to inline the bundle via a blob: URL,
+    eliminating the CDN dependency. An SRI-equivalent integrity check
+    is performed at load time via the integrity.json sha256 verification.
+    """
+    template_path = Path(__file__).parent / "render_template.html"
+    if not template_path.exists():
+        raise RenderError(f"Template not found at {template_path}")
+    template_html = template_path.read_text(encoding="utf-8")
+
+    if _vendor_bundle_available():
+        bundle_js = (VENDOR_DIR / "excalidraw-bundle.js").read_text(encoding="utf-8")
+        # Replace the CDN import with an inline blob URL approach.
+        # We wrap the vendor bundle in a blob and import from it.
+        vendor_template = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <!-- (5.4) CSP adapted for local vendor bundle -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src blob: 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self' data:">
+  <style>
+    * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+    body {{ overflow: hidden; }}
+    #root {{ display: inline-block; }}
+    #root svg {{ display: block; }}
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script>
+    // (1.10) Vendor bundle loaded locally -- no CDN dependency
+    // (5.10) Integrity verified via sha256 at load time by render script
+    const bundleCode = {json.dumps(bundle_js)};
+    const blob = new Blob([bundleCode], {{ type: "text/javascript" }});
+    const blobUrl = URL.createObjectURL(blob);
+
+    import(blobUrl).then((mod) => {{
+      window._excalidrawMod = mod;
+      window.renderDiagram = async function(jsonData) {{
+        try {{
+          const data = typeof jsonData === "string" ? JSON.parse(jsonData) : jsonData;
+          const elements = data.elements || [];
+          const appState = data.appState || {{}};
+          const files = data.files || {{}};
+          const bgColor = appState.viewBackgroundColor || "#ffffff";
+          document.body.style.background = bgColor;
+          const darkMode = appState.exportWithDarkMode || false;
+          const svg = await mod.exportToSvg({{
+            elements: elements,
+            appState: {{
+              ...appState,
+              viewBackgroundColor: bgColor,
+              exportWithDarkMode: darkMode,
+              exportBackground: true,
+            }},
+            files: files,
+          }});
+          const root = document.getElementById("root");
+          root.innerHTML = "";
+          root.appendChild(svg);
+          window.__renderComplete = true;
+          window.__renderError = null;
+          return {{ success: true, width: svg.getAttribute("width"), height: svg.getAttribute("height") }};
+        }} catch (err) {{
+          window.__renderComplete = true;
+          window.__renderError = err.message;
+          return {{ success: false, error: err.message }};
+        }}
+      }};
+      window.__moduleReady = true;
+    }}).catch((err) => {{
+      window.__moduleError = err.message || "Failed to load vendor bundle";
+    }});
+  </script>
+
+  <script>
+    window.addEventListener("error", function(e) {{
+      window.__moduleError = e.message || "Unknown module load error";
+    }});
+  </script>
+</body>
+</html>"""
+        logger.info("Using vendored Excalidraw bundle (offline mode)")
+        return vendor_template
+
+    return template_html
+
+
+# ---------------------------------------------------------------------------
 # Connectivity check (4.10)
 # ---------------------------------------------------------------------------
 def _check_connectivity(host: str = "esm.sh", timeout: float = 3.0) -> bool:
@@ -524,21 +651,19 @@ def render(
             "Run: cd references && uv sync && uv run playwright install chromium"
         )
 
-    # Connectivity check (4.10)
-    if not _check_connectivity():
-        raise RenderError(
-            "Cannot reach esm.sh -- check internet connection. "
-            "Fix: Ensure you have internet access, or use a local Excalidraw bundle."
-        )
+    # (1.10) Use vendored bundle if available, otherwise check connectivity
+    use_vendor = _vendor_bundle_available()
+    if not use_vendor:
+        # Connectivity check (4.10)
+        if not _check_connectivity():
+            raise RenderError(
+                "Cannot reach esm.sh -- check internet connection. "
+                "Fix: Ensure you have internet access, or run "
+                "'python vendor_excalidraw.py' to download a local bundle."
+            )
 
     # Template (5.9 - use set_content instead of file://)
-    template_path = Path(__file__).parent / "render_template.html"
-    if not template_path.exists():
-        raise RenderError(
-            f"Template not found at {template_path}. "
-            "Fix: Ensure render_template.html is in the same directory as this script."
-        )
-    template_html = template_path.read_text(encoding="utf-8")
+    template_html = _resolve_template_html()
 
     # Apply dark mode to template if requested (2.3)
     if dark_mode:
@@ -932,6 +1057,15 @@ def main() -> None:
         "--check", action="store_true",
         help="Verify installation: check Python, Playwright, Chromium, template (6.5).",
     )
+    parser.add_argument(
+        "--server", action="store_true",
+        help="Start a persistent render server on localhost to avoid browser cold-start "
+             "overhead. POST /render with JSON body to render (1.1).",
+    )
+    parser.add_argument(
+        "--port", type=int, default=DEFAULT_SERVER_PORT,
+        help=f"Port for --server mode (default: {DEFAULT_SERVER_PORT}) (1.1).",
+    )
     args = parser.parse_args()
 
     # Verbose mode
@@ -941,6 +1075,15 @@ def main() -> None:
     # Installation check mode (6.5)
     if args.check:
         _verify_setup()
+        return
+
+    # Server mode (1.1)
+    if args.server:
+        try:
+            start_server(port=args.port)
+        except RenderError as e:
+            logger.error(str(e))
+            sys.exit(1)
         return
 
     # Format preset override
@@ -1098,6 +1241,182 @@ def _generate_diff(previous_png: Path, current_png: Path) -> None:
         logger.info(f"Diff saved to {diff_path}")
     except Exception as e:
         logger.warning(f"Diff generation failed: {e}")
+
+
+# ---------------------------------------------------------------------------
+# Server mode (1.1) - Persistent browser for fast consecutive renders
+# ---------------------------------------------------------------------------
+DEFAULT_SERVER_PORT = 9120
+
+
+class _RenderServer(http.server.BaseHTTPRequestHandler):
+    """HTTP handler for render server mode. Holds a persistent browser context."""
+
+    _playwright_ctx = None  # Set by start_server
+    _page = None
+    _template_html = None
+
+    def log_message(self, format, *args):
+        logger.debug(format % args)
+
+    def do_POST(self):
+        if self.path == "/render":
+            self._handle_render()
+        elif self.path == "/shutdown":
+            self._handle_shutdown()
+        else:
+            self.send_error(404)
+
+    def do_GET(self):
+        if self.path == "/health":
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "ok"}).encode())
+        else:
+            self.send_error(404)
+
+    def _handle_render(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(length))
+        except (ValueError, json.JSONDecodeError) as e:
+            self.send_response(400)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+            return
+
+        excalidraw_data = body.get("data")
+        output_path_str = body.get("output")
+        svg_output = body.get("svg", False)
+        scale = body.get("scale", 2)
+
+        if not excalidraw_data or not output_path_str:
+            self.send_response(400)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({
+                "success": False, "error": "Missing 'data' or 'output' in request body"
+            }).encode())
+            return
+
+        output_path = Path(output_path_str)
+
+        try:
+            errors = validate_excalidraw(excalidraw_data)
+            if errors:
+                raise RenderError("Validation failed:\n" + "\n".join(f"  - {e}" for e in errors))
+
+            page = _RenderServer._page
+            if page is None:
+                raise RenderError("Server page not initialized")
+
+            # Reset render state
+            page.evaluate("() => { window.__renderComplete = false; window.__renderError = null; }")
+
+            result = page.evaluate("(data) => window.renderDiagram(data)", excalidraw_data)
+            if not result or not result.get("success"):
+                err_msg = result.get("error", "Unknown") if result else "null result"
+                raise RenderError(f"Render failed: {err_msg}")
+
+            page.wait_for_function("window.__renderComplete === true", timeout=15000)
+
+            if svg_output:
+                svg_html = page.evaluate("""() => {
+                    const svg = document.querySelector('#root svg');
+                    return svg ? svg.outerHTML : null;
+                }""")
+                if not svg_html:
+                    raise RenderError("No SVG element found")
+                output_path.write_text(svg_html, encoding="utf-8")
+            else:
+                svg_el = page.query_selector("#root svg")
+                if svg_el is None:
+                    raise RenderError("No SVG element found")
+                svg_el.screenshot(path=str(output_path))
+
+            resp = {"success": True, "output": str(output_path)}
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(resp).encode())
+
+        except (RenderError, Exception) as e:
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+
+    def _handle_shutdown(self):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps({"status": "shutting_down"}).encode())
+        threading.Thread(target=self.server.shutdown).start()
+
+
+def start_server(port: int = DEFAULT_SERVER_PORT) -> None:
+    """Start a render server with a persistent Playwright browser (1.1).
+
+    The server holds a single browser instance across all requests, eliminating
+    the 1-3 second cold-start overhead per render. Send POST /render with JSON
+    body {"data": <excalidraw_dict>, "output": "/path/to/output.png"}.
+
+    POST /shutdown to stop the server.
+    GET  /health for health check.
+    """
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        raise RenderError(
+            "playwright not installed. Run: cd references && uv sync && uv run playwright install chromium"
+        )
+
+    template_path = Path(__file__).parent / "render_template.html"
+    if not template_path.exists():
+        raise RenderError(f"Template not found at {template_path}")
+    template_html = template_path.read_text(encoding="utf-8")
+
+    logger.info("Starting persistent browser...")
+    pw = sync_playwright().start()
+    browser = pw.chromium.launch(
+        headless=True,
+        args=["--disable-gpu", "--disable-dev-shm-usage"],
+    )
+    context = browser.new_context(
+        viewport={"width": 1920, "height": 1080},
+        device_scale_factor=2,
+        permissions=[],
+    )
+    page = context.new_page()
+    page.set_content(template_html)
+
+    try:
+        page.wait_for_function("window.__moduleReady === true", timeout=30000)
+    except Exception:
+        browser.close()
+        pw.stop()
+        raise RenderError("Failed to load Excalidraw library in server mode")
+
+    _RenderServer._page = page
+    _RenderServer._template_html = template_html
+
+    server = http.server.HTTPServer(("127.0.0.1", port), _RenderServer)
+    logger.info(f"Render server listening on http://127.0.0.1:{port}")
+    logger.info("POST /render  - render a diagram")
+    logger.info("POST /shutdown - stop the server")
+    logger.info("GET  /health  - health check")
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        logger.info("Shutting down server...")
+        browser.close()
+        pw.stop()
+        logger.info("Server stopped.")
 
 
 # ---------------------------------------------------------------------------
