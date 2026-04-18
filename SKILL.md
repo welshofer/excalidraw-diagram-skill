@@ -1,6 +1,14 @@
 ---
 name: excalidraw-diagram
-description: Create Excalidraw diagram JSON files that make visual arguments. Use when the user wants to visualize workflows, architectures, or concepts.
+description: Create Excalidraw diagram JSON files that make visual arguments. Use when the user wants to visualize workflows, architectures, or concepts. Do NOT use for non-visual tasks, text-only explanations, or simple lists.
+version: 2.0.0
+tags: [diagram, visualization, excalidraw, architecture, workflow]
+requires: [bash, python>=3.11, uv]
+examples:
+  - "Visualize the AG-UI protocol as an architecture diagram"
+  - "Turn this sequence of steps into a flow chart"
+  - "Generate a decision tree diagram comparing these options"
+deep_dive: references/skill-deep-dive.md
 ---
 
 # Excalidraw Diagram Creator
@@ -752,4 +760,57 @@ uv run python render_excalidraw.py diagram.excalidraw --format thumbnail
 
 # Verify setup
 uv run python render_excalidraw.py --check dummy
+```
+
+### Render Server Mode (for 3+ iterations) -- v2 6.4
+
+When you expect to render the same diagram multiple times (e.g., a
+sketch -> render -> tweak -> re-render loop), start a persistent server
+once to amortize the ~3 second Chromium cold-start:
+
+```bash
+# Start in background (leave open for the session).
+uv run python render_excalidraw.py --server &
+
+# Each render is now an HTTP POST instead of a fresh browser launch.
+curl -X POST http://127.0.0.1:9120/render \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "data": <paste full .excalidraw JSON here>,
+    "output": "/absolute/path/to/diagram.png"
+  }'
+
+# Optional: GET http://127.0.0.1:9120/health
+# Stop:    POST http://127.0.0.1:9120/shutdown
+```
+
+`--server --auth-token` generates a Bearer token stored at
+`~/.cache/excalidraw-diagram-skill/token` (mode 0o600); pass it back as
+`Authorization: Bearer <token>`.
+
+### Batch mode -- v2 1.5 / 2.4
+
+Render an entire directory in one Chromium launch:
+
+```bash
+uv run python render_excalidraw.py --all ./examples/
+```
+
+### Shortform DSL -- v2 2.10
+
+Author large diagrams in ~5x fewer tokens using the compact DSL:
+
+```bash
+cat <<'EOF' | uv run python render_excalidraw.py --from-shortform -
+shape: rect id: a text: "Start"  at: [0, 0]    size: [160, 80]
+shape: rect id: b text: "Finish" at: [300, 0]  size: [160, 80]
+arrow: from: a to: b
+EOF
+```
+
+### Mermaid import -- v2 2.7
+
+```bash
+uv run python convert_mermaid.py flow.mmd -o flow.excalidraw
+uv run python render_excalidraw.py flow.excalidraw
 ```
