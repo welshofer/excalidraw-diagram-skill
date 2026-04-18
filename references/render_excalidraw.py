@@ -1140,7 +1140,9 @@ def _export_html(
     json_str = json.dumps(data).replace("</", "<\\/")
     bg_color = "#1e1e1e" if dark_mode else "#ffffff"
 
-    use_vendor = inline_bundle or _vendor_bundle_available()
+    # (v2 7.4 fix) Interactive mode always uses the React component path;
+    # the static-SVG vendor path is only taken when interactive is False.
+    use_vendor = (inline_bundle or _vendor_bundle_available()) and not interactive
     if use_vendor and (VENDOR_DIR / "excalidraw-bundle.js").exists():
         bundle_js = (VENDOR_DIR / "excalidraw-bundle.js").read_text(encoding="utf-8")
         vendor_js_literal = json.dumps(bundle_js)
