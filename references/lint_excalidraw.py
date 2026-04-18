@@ -448,26 +448,25 @@ def auto_fix(data: dict, issues: list[dict]) -> dict:
                     old_width = float(container.get("width", 0))
                 except (TypeError, ValueError):
                     old_width = 0.0
+                try:
+                    container_x = float(container.get("x", 0))
+                except (TypeError, ValueError):
+                    container_x = 0.0
                 container["width"] = new_width
-                # (v2 3.1) Correct re-centering math.
-                # When the container grows by (new_width - old_width), the
-                # bound text should shift by half that delta to stay centered,
-                # and its width should grow by the full delta (clamped to the
-                # new container width minus a small inset).
-                delta = new_width - old_width
-                half_delta = delta / 2
+                # (v2 3.1) Correct re-centering math: explicitly place the text
+                # so its center equals the new container center.
+                new_container_center_x = container_x + new_width / 2
                 for el in elements:
                     if isinstance(el, dict) and el.get("containerId") == target_id:
-                        try:
-                            ex = float(el.get("x", 0))
-                        except (TypeError, ValueError):
-                            ex = 0.0
                         try:
                             ew = float(el.get("width", 0))
                         except (TypeError, ValueError):
                             ew = 0.0
-                        el["x"] = ex + half_delta
-                        el["width"] = min(ew + delta, new_width - 20)
+                        # Grow text to fit (minus inset) when it was previously
+                        # sized to the old container.
+                        new_text_width = min(max(ew, new_width - 20), new_width - 20)
+                        el["width"] = new_text_width
+                        el["x"] = new_container_center_x - new_text_width / 2
                 fixes_applied += 1
                 logger.info(
                     f"Fixed: widened '{target_id}' from {old_width} to {new_width}px"

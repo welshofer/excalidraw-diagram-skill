@@ -378,7 +378,11 @@ def compute_bounding_box(elements: list[dict]) -> tuple[float, float, float, flo
 def validate_path(path: Path, kind: str = "input") -> list[str]:
     """Validate file paths to prevent path traversal and unsafe writes.
 
-    (v2 3.8) Catches symlink loops (OSError ELOOP) when resolving.
+    (v2 3.8) Catches symlink loops (OSError ELOOP) when resolving. On some
+    platforms ``Path.resolve()`` silently returns the unresolved path; use
+    ``os.stat()`` to force the kernel to follow symlinks which does raise
+    on ELOOP. If the target doesn't yet exist (common for output files),
+    walk the parents and ``os.stat`` each to detect a cycle along the way.
     """
     errors: list[str] = []
     raw_str = str(path)
@@ -390,6 +394,22 @@ def validate_path(path: Path, kind: str = "input") -> list[str]:
             "Fix: Ensure the path does not contain a symlink cycle."
         )
         return errors
+
+    # Symlink-loop probe: os.stat follows links and raises OSError(ELOOP).
+    for candidate in (path, *path.parents):
+        try:
+            if candidate.exists() or candidate.is_symlink():
+                os.stat(candidate)
+                break
+        except OSError as e:
+            # errno 62 is ELOOP on macOS/Linux.
+            import errno as _errno
+            if e.errno in (_errno.ELOOP, _errno.ENAMETOOLONG):
+                errors.append(
+                    f"Refusing to resolve {raw_str!r}: symlink cycle detected ({e})."
+                )
+                return errors
+            break
 
     if kind == "output":
         suffix = path.suffix.lower()
