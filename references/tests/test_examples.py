@@ -56,6 +56,6 @@ class TestExampleFiles:
         elements = [e for e in data["elements"] if not e.get("isDeleted")]
         min_x, min_y, max_x, max_y = compute_bounding_box(elements)
         assert max_x > min_x, "Degenerate bounding box (zero width)"
-        assert max_y > min_y or any(
-            e.get("type") in ("line", "arrow") for e in elements
-        ), "Degenerate bounding box (zero height)"
+        assert max_y > min_y or any(e.get("type") in ("line", "arrow") for e in elements), (
+            "Degenerate bounding box (zero height)"
+        )

@@ -21,7 +21,6 @@ The GIF shows 5 frames:
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
@@ -41,7 +40,7 @@ FRAME_DURATION_MS = 1500  # 1.5s per frame
 
 def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
     hex_color = hex_color.lstrip("#")
-    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+    return tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
 
 
 def _draw_rounded_rect(draw, xy, fill, outline, radius=8, width=2):
@@ -50,12 +49,12 @@ def _draw_rounded_rect(draw, xy, fill, outline, radius=8, width=2):
 
 
 def _draw_box(draw, x, y, w, h, fill, stroke, text, text_color="#000000", font=None):
-    _draw_rounded_rect(draw, (x, y, x+w, y+h), fill=fill, outline=stroke)
+    _draw_rounded_rect(draw, (x, y, x + w, y + h), fill=fill, outline=stroke)
     if font:
         bbox = font.getbbox(text)
         tw = bbox[2] - bbox[0]
         th = bbox[3] - bbox[1]
-        draw.text((x + w/2 - tw/2, y + h/2 - th/2), text, fill=text_color, font=font)
+        draw.text((x + w / 2 - tw / 2, y + h / 2 - th / 2), text, fill=text_color, font=font)
     else:
         draw.text((x + 10, y + 10), text, fill=text_color)
 
@@ -64,6 +63,7 @@ def _draw_arrow(draw, x1, y1, x2, y2, color, width=2):
     draw.line([(x1, y1), (x2, y2)], fill=color, width=width)
     # Arrowhead
     import math
+
     angle = math.atan2(y2 - y1, x2 - x1)
     arrow_len = 10
     ax1 = x2 - arrow_len * math.cos(angle - 0.4)
@@ -97,7 +97,7 @@ def _draw_title_bar(draw, text, step_num, total_steps, font_title, font_small):
     for i in range(total_steps):
         cx = WIDTH - 30 - (total_steps - 1 - i) * 20
         color = "#3b82f6" if i < step_num else "#475569"
-        draw.ellipse([(cx-5, 20), (cx+5, 30)], fill=color)
+        draw.ellipse([(cx - 5, 20), (cx + 5, 30)], fill=color)
 
 
 def frame_1_initial_draft(font, font_small, font_title) -> Image.Image:
@@ -187,7 +187,7 @@ def frame_3_fix_layout(font, font_small, font_title) -> Image.Image:
     # Ellipse for user (different shape)
     draw.ellipse([(60, 160), (180, 230)], fill=gray, outline=stroke, width=2)
     bbox = font.getbbox("User")
-    draw.text((120 - (bbox[2]-bbox[0])//2, 185), "User", fill="#374151", font=font)
+    draw.text((120 - (bbox[2] - bbox[0]) // 2, 185), "User", fill="#374151", font=font)
 
     # Larger central API box
     _draw_box(draw, 260, 150, 180, 80, gray, stroke, "API Gateway", font=font)
@@ -196,14 +196,16 @@ def frame_3_fix_layout(font, font_small, font_title) -> Image.Image:
     _draw_box(draw, 530, 100, 140, 55, gray, stroke, "Auth", font=font)
     draw.ellipse([(550, 270), (670, 340)], fill=gray, outline=stroke, width=2)
     bbox = font.getbbox("Database")
-    draw.text((610 - (bbox[2]-bbox[0])//2, 295), "Database", fill="#374151", font=font)
+    draw.text((610 - (bbox[2] - bbox[0]) // 2, 295), "Database", fill="#374151", font=font)
 
     _draw_arrow(draw, 180, 195, 260, 190, stroke, width=2)
     _draw_arrow(draw, 440, 170, 530, 127, stroke, width=2)
     _draw_arrow(draw, 440, 210, 550, 290, stroke, width=2)
 
     # Improvement notes
-    draw.text((300, 400), "Fan-out pattern applied. Shape variety added.", fill="#059669", font=font_small)
+    draw.text(
+        (300, 400), "Fan-out pattern applied. Shape variety added.", fill="#059669", font=font_small
+    )
 
     return img
 
@@ -218,20 +220,31 @@ def frame_4_apply_colors(font, font_small, font_title) -> Image.Image:
     # User (orange/external)
     draw.ellipse([(60, 160), (180, 230)], fill="#fed7aa", outline="#c2410c", width=2)
     bbox = font.getbbox("User")
-    draw.text((120 - (bbox[2]-bbox[0])//2, 185), "User", fill="#c2410c", font=font)
+    draw.text((120 - (bbox[2] - bbox[0]) // 2, 185), "User", fill="#c2410c", font=font)
 
     # API (blue/primary)
-    _draw_box(draw, 260, 150, 180, 80, "#3b82f6", "#1e3a5f", "API Gateway",
-              text_color="#ffffff", font=font)
+    _draw_box(
+        draw,
+        260,
+        150,
+        180,
+        80,
+        "#3b82f6",
+        "#1e3a5f",
+        "API Gateway",
+        text_color="#ffffff",
+        font=font,
+    )
 
     # Auth (amber/warning)
-    _draw_box(draw, 530, 100, 140, 55, "#fef3c7", "#b45309", "Auth",
-              text_color="#b45309", font=font)
+    _draw_box(
+        draw, 530, 100, 140, 55, "#fef3c7", "#b45309", "Auth", text_color="#b45309", font=font
+    )
 
     # Database (green/data)
     draw.ellipse([(550, 270), (670, 340)], fill="#a7f3d0", outline="#047857", width=2)
     bbox = font.getbbox("Database")
-    draw.text((610 - (bbox[2]-bbox[0])//2, 295), "Database", fill="#047857", font=font)
+    draw.text((610 - (bbox[2] - bbox[0]) // 2, 295), "Database", fill="#047857", font=font)
 
     _draw_arrow(draw, 180, 195, 260, 190, "#c2410c", width=2)
     _draw_arrow(draw, 440, 170, 530, 127, "#b45309", width=2)
@@ -242,7 +255,12 @@ def frame_4_apply_colors(font, font_small, font_title) -> Image.Image:
     draw.text((470, 240), "query", fill="#1e3a5f", font=font_small)
     draw.text((190, 170), "HTTPS", fill="#c2410c", font=font_small)
 
-    draw.text((250, 400), "Semantic colors applied: each role has its own color.", fill="#059669", font=font_small)
+    draw.text(
+        (250, 400),
+        "Semantic colors applied: each role has its own color.",
+        fill="#059669",
+        font=font_small,
+    )
 
     return img
 
@@ -261,21 +279,32 @@ def frame_5_final(font, font_small, font_title) -> Image.Image:
     # User (orange/external)
     draw.ellipse([(60, 140), (180, 210)], fill="#fed7aa", outline="#c2410c", width=2)
     bbox = font.getbbox("User")
-    draw.text((120 - (bbox[2]-bbox[0])//2, 165), "User", fill="#c2410c", font=font)
+    draw.text((120 - (bbox[2] - bbox[0]) // 2, 165), "User", fill="#c2410c", font=font)
 
     # API (blue/primary) - dominant
-    _draw_box(draw, 260, 120, 180, 80, "#3b82f6", "#1e3a5f", "API Gateway",
-              text_color="#ffffff", font=font)
+    _draw_box(
+        draw,
+        260,
+        120,
+        180,
+        80,
+        "#3b82f6",
+        "#1e3a5f",
+        "API Gateway",
+        text_color="#ffffff",
+        font=font,
+    )
 
     # Auth (amber)
-    _draw_box(draw, 530, 100, 140, 55, "#fef3c7", "#b45309", "Auth",
-              text_color="#b45309", font=font)
+    _draw_box(
+        draw, 530, 100, 140, 55, "#fef3c7", "#b45309", "Auth", text_color="#b45309", font=font
+    )
     draw.text((555, 160), "JWT + OAuth 2.0", fill="#92400e", font=font_small)
 
     # Database (green)
     draw.ellipse([(550, 240), (680, 310)], fill="#a7f3d0", outline="#047857", width=2)
     bbox = font.getbbox("PostgreSQL")
-    draw.text((615 - (bbox[2]-bbox[0])//2, 265), "PostgreSQL", fill="#047857", font=font)
+    draw.text((615 - (bbox[2] - bbox[0]) // 2, 265), "PostgreSQL", fill="#047857", font=font)
     draw.text((560, 315), "Primary + Replica", fill="#065f46", font=font_small)
 
     _draw_arrow(draw, 180, 175, 260, 165, "#c2410c", width=2)
@@ -324,7 +353,9 @@ def generate_gif(output_path: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate render-fix loop animated GIF (7.2)")
     parser.add_argument(
-        "--output", "-o", type=Path,
+        "--output",
+        "-o",
+        type=Path,
         default=Path(__file__).parent.parent / "examples" / "render-fix-loop.gif",
         help="Output GIF path",
     )

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -80,7 +79,11 @@ class TestElementBbox:
 
     def test_arrow_with_points(self):
         el = _make_element(
-            type="arrow", x=100, y=100, w=200, h=0,
+            type="arrow",
+            x=100,
+            y=100,
+            w=200,
+            h=0,
             points=[[0, 0], [200, 50]],
         )
         bbox = _get_element_bbox(el)
@@ -139,7 +142,11 @@ class TestLintOverlap:
 
     def test_bound_text_container_not_flagged(self):
         rect = _make_element(
-            id="rect1", x=0, y=0, w=200, h=100,
+            id="rect1",
+            x=0,
+            y=0,
+            w=200,
+            h=100,
             boundElements=[{"id": "text1", "type": "text"}],
         )
         # Text is the same shape type as container for bbox overlap,
@@ -155,14 +162,25 @@ class TestLintTextOverflow:
 
     def test_text_overflows_small_container(self):
         container = _make_element(
-            id="box1", type="rectangle", x=0, y=0, w=60, h=40,
+            id="box1",
+            type="rectangle",
+            x=0,
+            y=0,
+            w=60,
+            h=40,
             boundElements=[{"id": "txt1", "type": "text"}],
         )
         text = _make_element(
-            id="txt1", type="text", x=5, y=5, w=50, h=20,
+            id="txt1",
+            type="text",
+            x=5,
+            y=5,
+            w=50,
+            h=20,
             text="This is a very long text that overflows",
             originalText="This is a very long text that overflows",
-            fontSize=16, fontFamily=3,
+            fontSize=16,
+            fontFamily=3,
             containerId="box1",
         )
         data = _make_diagram([container, text])
@@ -175,14 +193,25 @@ class TestLintTextOverflow:
 
     def test_text_fits_container(self):
         container = _make_element(
-            id="box1", type="rectangle", x=0, y=0, w=300, h=50,
+            id="box1",
+            type="rectangle",
+            x=0,
+            y=0,
+            w=300,
+            h=50,
             boundElements=[{"id": "txt1", "type": "text"}],
         )
         text = _make_element(
-            id="txt1", type="text", x=5, y=5, w=50, h=20,
+            id="txt1",
+            type="text",
+            x=5,
+            y=5,
+            w=50,
+            h=20,
             text="OK",
             originalText="OK",
-            fontSize=14, fontFamily=3,
+            fontSize=14,
+            fontFamily=3,
             containerId="box1",
         )
         data = _make_diagram([container, text])
@@ -192,14 +221,25 @@ class TestLintTextOverflow:
 
     def test_diamond_has_reduced_usable_width(self):
         diamond = _make_element(
-            id="d1", type="diamond", x=0, y=0, w=140, h=100,
+            id="d1",
+            type="diamond",
+            x=0,
+            y=0,
+            w=140,
+            h=100,
             boundElements=[{"id": "dt1", "type": "text"}],
         )
         text = _make_element(
-            id="dt1", type="text", x=10, y=10, w=100, h=20,
+            id="dt1",
+            type="text",
+            x=10,
+            y=10,
+            w=100,
+            h=20,
             text="Long Decision Text Here",
             originalText="Long Decision Text Here",
-            fontSize=14, fontFamily=3,
+            fontSize=14,
+            fontFamily=3,
             containerId="d1",
         )
         data = _make_diagram([diamond, text])
@@ -234,7 +274,12 @@ class TestLintUnboundArrow:
 
     def test_unbound_arrow_detected(self):
         arrow = _make_element(
-            id="arrow1", type="arrow", x=0, y=0, w=100, h=0,
+            id="arrow1",
+            type="arrow",
+            x=0,
+            y=0,
+            w=100,
+            h=0,
             points=[[0, 0], [100, 0]],
         )
         data = _make_diagram([arrow])
@@ -245,7 +290,12 @@ class TestLintUnboundArrow:
     def test_bound_arrow_not_flagged(self):
         rect = _make_element(id="r1", x=0, y=0, w=50, h=50)
         arrow = _make_element(
-            id="arrow1", type="arrow", x=50, y=25, w=100, h=0,
+            id="arrow1",
+            type="arrow",
+            x=50,
+            y=25,
+            w=100,
+            h=0,
             points=[[0, 0], [100, 0]],
             startBinding={"elementId": "r1", "focus": 0, "gap": 2},
         )
@@ -260,14 +310,25 @@ class TestAutoFix:
 
     def test_widen_container_fix(self):
         container = _make_element(
-            id="box1", type="rectangle", x=0, y=0, w=60, h=40,
+            id="box1",
+            type="rectangle",
+            x=0,
+            y=0,
+            w=60,
+            h=40,
             boundElements=[{"id": "txt1", "type": "text"}],
         )
         text = _make_element(
-            id="txt1", type="text", x=5, y=5, w=50, h=20,
+            id="txt1",
+            type="text",
+            x=5,
+            y=5,
+            w=50,
+            h=20,
             text="This is a very long text that definitely overflows",
             originalText="This is a very long text that definitely overflows",
-            fontSize=16, fontFamily=3,
+            fontSize=16,
+            fontFamily=3,
             containerId="box1",
         )
         data = _make_diagram([container, text])
@@ -282,14 +343,25 @@ class TestAutoFix:
 
     def test_autofix_doesnt_modify_original(self):
         container = _make_element(
-            id="box1", type="rectangle", x=0, y=0, w=60, h=40,
+            id="box1",
+            type="rectangle",
+            x=0,
+            y=0,
+            w=60,
+            h=40,
             boundElements=[{"id": "txt1", "type": "text"}],
         )
         text = _make_element(
-            id="txt1", type="text", x=5, y=5, w=50, h=20,
+            id="txt1",
+            type="text",
+            x=5,
+            y=5,
+            w=50,
+            h=20,
             text="Overflow text here please",
             originalText="Overflow text here please",
-            fontSize=16, fontFamily=3,
+            fontSize=16,
+            fontFamily=3,
             containerId="box1",
         )
         data = _make_diagram([container, text])

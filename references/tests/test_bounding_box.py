@@ -6,7 +6,6 @@ import logging
 import sys
 from pathlib import Path
 
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -65,7 +64,12 @@ class TestArrowAndLineBoundingBox:
     def test_arrow_with_points(self):
         elements = [
             _el(
-                id="arrow1", type="arrow", x=100, y=100, w=200, h=0,
+                id="arrow1",
+                type="arrow",
+                x=100,
+                y=100,
+                w=200,
+                h=0,
                 points=[[0, 0], [200, 0]],
             ),
         ]
@@ -78,7 +82,12 @@ class TestArrowAndLineBoundingBox:
     def test_line_with_points(self):
         elements = [
             _el(
-                id="line1", type="line", x=0, y=0, w=0, h=100,
+                id="line1",
+                type="line",
+                x=0,
+                y=0,
+                w=0,
+                h=100,
                 points=[[0, 0], [0, 100]],
             ),
         ]
@@ -91,7 +100,10 @@ class TestArrowAndLineBoundingBox:
     def test_arrow_with_negative_points(self):
         elements = [
             _el(
-                id="arrow1", type="arrow", x=200, y=200,
+                id="arrow1",
+                type="arrow",
+                x=200,
+                y=200,
                 points=[[0, 0], [-100, -50]],
             ),
         ]
@@ -116,7 +128,9 @@ class TestMalformedInput:
     def test_none_coordinates(self, caplog):
         """None coordinates default to 0."""
         with caplog.at_level(logging.WARNING, logger="excalidraw_render"):
-            elements = [{"id": "el1", "type": "rectangle", "x": None, "y": None, "width": 100, "height": 50}]
+            elements = [
+                {"id": "el1", "type": "rectangle", "x": None, "y": None, "width": 100, "height": 50}
+            ]
             compute_bounding_box(elements)
 
     def test_malformed_points_skipped(self, caplog):
@@ -124,7 +138,10 @@ class TestMalformedInput:
         with caplog.at_level(logging.WARNING, logger="excalidraw_render"):
             elements = [
                 _el(
-                    id="arrow1", type="arrow", x=100, y=100,
+                    id="arrow1",
+                    type="arrow",
+                    x=100,
+                    y=100,
                     points=[[0, 0], [50], [100, 50]],  # middle point malformed
                 ),
             ]
@@ -141,7 +158,10 @@ class TestMalformedInput:
         with caplog.at_level(logging.WARNING, logger="excalidraw_render"):
             elements = [
                 _el(
-                    id="arrow1", type="arrow", x=0, y=0,
+                    id="arrow1",
+                    type="arrow",
+                    x=0,
+                    y=0,
                     points=[[0, 0], ["x", "y"], [100, 100]],
                 ),
             ]

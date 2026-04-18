@@ -152,11 +152,13 @@ class TestFileValidation:
 
     def test_render_rejects_missing_file(self):
         from render_excalidraw import render
+
         with pytest.raises((RenderError, SystemExit)):
             render(Path("/nonexistent/file.excalidraw"))
 
     def test_render_rejects_invalid_json(self):
         from render_excalidraw import render
+
         with tempfile.NamedTemporaryFile(suffix=".excalidraw", mode="w", delete=False) as f:
             f.write("not valid json {{{")
             f.flush()
@@ -165,6 +167,7 @@ class TestFileValidation:
 
     def test_render_rejects_invalid_structure(self):
         from render_excalidraw import render
+
         with tempfile.NamedTemporaryFile(suffix=".excalidraw", mode="w", delete=False) as f:
             json.dump({"type": "not_excalidraw"}, f)
             f.flush()
