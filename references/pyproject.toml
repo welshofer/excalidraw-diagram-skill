@@ -1,7 +1,32 @@
 [project]
 name = "excalidraw-render"
-version = "0.1.0"
+version = "0.2.0"
 requires-python = ">=3.11"
 dependencies = [
-    "playwright>=1.40.0",
+    # (4.8) Pinned to <2.0.0 to prevent breaking API changes.
+    # Minimum 1.40.0 required for sync_api, set_content, and evaluate with args.
+    "playwright>=1.40.0,<2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+# (1.8) Separate entry points for render and validate
+render-excalidraw = "render_excalidraw:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
 ]

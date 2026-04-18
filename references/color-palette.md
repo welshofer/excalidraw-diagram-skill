@@ -65,3 +65,67 @@ Used for code snippets, data examples, and other concrete evidence inside techni
 | Property | Value |
 |----------|-------|
 | Canvas background | `#ffffff` |
+
+---
+
+## Dark Mode Colors
+
+Use these when rendering with `--dark` mode. The semantic meanings stay the same, but fills and strokes are adjusted for dark backgrounds.
+
+| Semantic Purpose | Fill | Stroke |
+|------------------|------|--------|
+| Primary/Neutral | `#1e3a5f` | `#60a5fa` |
+| Secondary | `#1e3a5f` | `#93c5fd` |
+| Start/Trigger | `#7c2d12` | `#fed7aa` |
+| End/Success | `#064e3b` | `#a7f3d0` |
+| Warning/Reset | `#7f1d1d` | `#fecaca` |
+| Decision | `#78350f` | `#fef3c7` |
+| AI/LLM | `#4c1d95` | `#ddd6fe` |
+| Error | `#7f1d1d` | `#fecaca` |
+
+| Text Level | Color |
+|------------|-------|
+| Title | `#93c5fd` |
+| Subtitle | `#60a5fa` |
+| Body/Detail | `#94a3b8` |
+| On dark fills | `#e2e8f0` |
+
+| Property | Value |
+|----------|-------|
+| Canvas background (dark) | `#1e1e1e` |
+
+---
+
+## Alternative Palettes
+
+For different visual styles, consider these palette variants. Create a copy of this file and swap the Shape Colors table.
+
+### Warm Palette
+| Purpose | Fill | Stroke |
+|---------|------|--------|
+| Primary | `#f97316` | `#9a3412` |
+| Secondary | `#fb923c` | `#9a3412` |
+| Accent | `#fbbf24` | `#92400e` |
+
+### Cool Palette
+| Purpose | Fill | Stroke |
+|---------|------|--------|
+| Primary | `#06b6d4` | `#164e63` |
+| Secondary | `#22d3ee` | `#164e63` |
+| Accent | `#a78bfa` | `#4c1d95` |
+
+### High-Contrast Accessibility Palette
+| Purpose | Fill | Stroke |
+|---------|------|--------|
+| Primary | `#2563eb` | `#000000` |
+| Secondary | `#16a34a` | `#000000` |
+| Warning | `#dc2626` | `#000000` |
+| Neutral | `#f3f4f6` | `#000000` |
+
+### Minimal / Grayscale Palette
+| Purpose | Fill | Stroke |
+|---------|------|--------|
+| Primary | `#f3f4f6` | `#374151` |
+| Secondary | `#e5e7eb` | `#374151` |
+| Accent | `#d1d5db` | `#1f2937` |
+| Emphasis | `#374151` | `#111827` |

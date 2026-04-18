@@ -2,9 +2,11 @@
 <html>
 <head>
   <meta charset="utf-8" />
+  <!-- (5.4) Content Security Policy restricting script sources -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://esm.sh 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://esm.sh; img-src 'self' data:">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #ffffff; overflow: hidden; }
+    body { overflow: hidden; }
     #root { display: inline-block; }
     #root svg { display: block; }
   </style>
@@ -13,7 +15,8 @@
   <div id="root"></div>
 
   <script type="module">
-    import { exportToSvg } from "https://esm.sh/@excalidraw/excalidraw?bundle";
+    // (1.2) Pinned Excalidraw version for reproducible builds
+    import { exportToSvg } from "https://esm.sh/@excalidraw/excalidraw@0.18.0?bundle";
 
     window.renderDiagram = async function(jsonData) {
       try {
@@ -22,20 +25,25 @@
         const appState = data.appState || {};
         const files = data.files || {};
 
-        // Force white background in appState
-        appState.viewBackgroundColor = appState.viewBackgroundColor || "#ffffff";
-        appState.exportWithDarkMode = false;
+        // (2.3) Respect viewBackgroundColor from appState; default to white
+        const bgColor = appState.viewBackgroundColor || "#ffffff";
+        document.body.style.background = bgColor;
+
+        // (2.3) Respect dark mode setting from appState
+        const darkMode = appState.exportWithDarkMode || false;
 
         const svg = await exportToSvg({
           elements: elements,
           appState: {
             ...appState,
+            viewBackgroundColor: bgColor,
+            exportWithDarkMode: darkMode,
             exportBackground: true,
           },
           files: files,
         });
 
-        // Clear any previous render
+        // (1.3) Clear any previous render and reuse the page
         const root = document.getElementById("root");
         root.innerHTML = "";
         root.appendChild(svg);
@@ -52,6 +60,13 @@
 
     // Signal that the module is loaded and ready
     window.__moduleReady = true;
+  </script>
+
+  <!-- (4.10) Error handler for module load failures -->
+  <script>
+    window.addEventListener("error", function(e) {
+      window.__moduleError = e.message || "Unknown module load error";
+    });
   </script>
 </body>
 </html>

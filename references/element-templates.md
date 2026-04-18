@@ -180,3 +180,211 @@ Copy-paste JSON templates for each Excalidraw element type. The `strokeColor` an
 ```
 
 For curves: use 3+ points in `points` array.
+
+## Ellipse (standard size, with text)
+
+Use for entry/exit points, external systems, or abstract states. Pair with a text element using `containerId`.
+
+```json
+{
+  "type": "ellipse",
+  "id": "ellipse1",
+  "x": 100, "y": 100,
+  "width": 140, "height": 70,
+  "strokeColor": "<stroke from palette based on semantic purpose>",
+  "backgroundColor": "<fill from palette based on semantic purpose>",
+  "fillStyle": "solid",
+  "strokeWidth": 2,
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "opacity": 100,
+  "angle": 0,
+  "seed": 88888,
+  "version": 1,
+  "versionNonce": 99999,
+  "isDeleted": false,
+  "groupIds": [],
+  "boundElements": [{"id": "ellipse1_text", "type": "text"}],
+  "link": null,
+  "locked": false
+}
+```
+
+Text inside the ellipse:
+```json
+{
+  "type": "text",
+  "id": "ellipse1_text",
+  "x": 120, "y": 123,
+  "width": 100, "height": 25,
+  "text": "Start",
+  "originalText": "Start",
+  "fontSize": 18,
+  "fontFamily": 3,
+  "textAlign": "center",
+  "verticalAlign": "middle",
+  "strokeColor": "<text color>",
+  "backgroundColor": "transparent",
+  "fillStyle": "solid",
+  "strokeWidth": 1,
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "opacity": 100,
+  "angle": 0,
+  "seed": 88889,
+  "version": 1,
+  "versionNonce": 99998,
+  "isDeleted": false,
+  "groupIds": [],
+  "boundElements": null,
+  "link": null,
+  "locked": false,
+  "containerId": "ellipse1",
+  "lineHeight": 1.25
+}
+```
+
+## Diamond (decision)
+
+Use for decisions, conditionals, and branching points. The classic diamond shape.
+
+```json
+{
+  "type": "diamond",
+  "id": "decision1",
+  "x": 100, "y": 100,
+  "width": 140, "height": 100,
+  "strokeColor": "<Decision stroke from palette (#b45309)>",
+  "backgroundColor": "<Decision fill from palette (#fef3c7)>",
+  "fillStyle": "solid",
+  "strokeWidth": 2,
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "opacity": 100,
+  "angle": 0,
+  "seed": 55555,
+  "version": 1,
+  "versionNonce": 55556,
+  "isDeleted": false,
+  "groupIds": [],
+  "boundElements": [
+    {"id": "decision1_text", "type": "text"},
+    {"id": "arrow_yes", "type": "arrow"},
+    {"id": "arrow_no", "type": "arrow"}
+  ],
+  "link": null,
+  "locked": false
+}
+```
+
+Text inside the diamond:
+```json
+{
+  "type": "text",
+  "id": "decision1_text",
+  "x": 120, "y": 138,
+  "width": 100, "height": 25,
+  "text": "Condition?",
+  "originalText": "Condition?",
+  "fontSize": 16,
+  "fontFamily": 3,
+  "textAlign": "center",
+  "verticalAlign": "middle",
+  "strokeColor": "<Decision stroke from palette (#b45309)>",
+  "backgroundColor": "transparent",
+  "fillStyle": "solid",
+  "strokeWidth": 1,
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "opacity": 100,
+  "angle": 0,
+  "seed": 55557,
+  "version": 1,
+  "versionNonce": 55558,
+  "isDeleted": false,
+  "groupIds": [],
+  "boundElements": null,
+  "link": null,
+  "locked": false,
+  "containerId": "decision1",
+  "lineHeight": 1.25
+}
+```
+
+## Frame (section boundary / group)
+
+Use frames to create labeled section boundaries that visually group related components. Add child element IDs via `groupIds` on the child elements matching the frame's group.
+
+```json
+{
+  "type": "frame",
+  "id": "section_backend",
+  "x": 50, "y": 50,
+  "width": 500, "height": 400,
+  "name": "Backend Services",
+  "strokeColor": "#1e3a5f",
+  "backgroundColor": "transparent",
+  "fillStyle": "solid",
+  "strokeWidth": 1,
+  "strokeStyle": "solid",
+  "roughness": 0,
+  "opacity": 100,
+  "angle": 0,
+  "seed": 77777,
+  "version": 1,
+  "versionNonce": 77778,
+  "isDeleted": false,
+  "groupIds": [],
+  "boundElements": null,
+  "link": null,
+  "locked": false
+}
+```
+
+To place elements inside a frame, add the frame's group ID to each child element's `groupIds` array:
+```json
+{
+  "type": "rectangle",
+  "id": "api_server",
+  "groupIds": ["section_backend_group"],
+  ...
+}
+```
+
+**Tip**: Use a consistent naming convention like `"section_NAME_group"` for group IDs that match frames.
+
+## Fill Style Variants
+
+All shapes support different fill styles for visual variety:
+
+**Solid fill** (default, clean look):
+```json
+"fillStyle": "solid"
+```
+
+**Hachure fill** (hand-drawn diagonal lines, good for "in-progress" or "draft" elements):
+```json
+"fillStyle": "hachure"
+```
+
+**Cross-hatch fill** (crossed diagonal lines, good for emphasis or category distinction):
+```json
+"fillStyle": "cross-hatch"
+```
+
+## Font Family Options
+
+Excalidraw supports three font families:
+
+| Value | Font | Use For |
+|-------|------|---------|
+| `1` | Virgil (hand-drawn) | Informal, creative, brainstorming diagrams |
+| `2` | Helvetica (normal) | Business, professional, presentation diagrams |
+| `3` | Monospace (code) | Technical, code-focused diagrams (default) |
+
+Choose the font family that matches your diagram's purpose:
+```json
+"fontFamily": 1  // hand-drawn feel
+"fontFamily": 2  // clean professional
+"fontFamily": 3  // technical/code (recommended default)
+```
