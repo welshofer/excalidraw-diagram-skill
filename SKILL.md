@@ -9,6 +9,114 @@ Generate `.excalidraw` JSON files that **argue visually**, not just display info
 
 **Setup:** If the user asks you to set up this skill (renderer, dependencies, etc.), see `README.md` for instructions.
 
+---
+
+## Quick Start: Your First Diagram in 5 Minutes
+
+Here is a minimal 3-element diagram (rectangle + text + arrow) you can create immediately:
+
+**1. Create the JSON file** (`my-diagram.excalidraw`):
+
+```json
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {
+      "type": "rectangle",
+      "id": "box1",
+      "x": 100, "y": 100, "width": 160, "height": 80,
+      "strokeColor": "#1e3a5f",
+      "backgroundColor": "#3b82f6",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "angle": 0,
+      "seed": 1001,
+      "version": 1,
+      "versionNonce": 1002,
+      "isDeleted": false,
+      "groupIds": [],
+      "boundElements": [{"id": "box1_text", "type": "text"}, {"id": "arrow1", "type": "arrow"}],
+      "link": null,
+      "locked": false,
+      "roundness": {"type": 3}
+    },
+    {
+      "type": "text",
+      "id": "box1_text",
+      "x": 130, "y": 128,
+      "width": 100, "height": 25,
+      "text": "Hello",
+      "originalText": "Hello",
+      "fontSize": 20,
+      "fontFamily": 3,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "strokeColor": "#ffffff",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "angle": 0,
+      "seed": 1003,
+      "version": 1,
+      "versionNonce": 1004,
+      "isDeleted": false,
+      "groupIds": [],
+      "boundElements": null,
+      "link": null,
+      "locked": false,
+      "containerId": "box1",
+      "lineHeight": 1.25
+    },
+    {
+      "type": "arrow",
+      "id": "arrow1",
+      "x": 262, "y": 140,
+      "width": 100, "height": 0,
+      "strokeColor": "#1e3a5f",
+      "backgroundColor": "transparent",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 0,
+      "opacity": 100,
+      "angle": 0,
+      "seed": 1005,
+      "version": 1,
+      "versionNonce": 1006,
+      "isDeleted": false,
+      "groupIds": [],
+      "boundElements": null,
+      "link": null,
+      "locked": false,
+      "points": [[0, 0], [100, 0]],
+      "startBinding": {"elementId": "box1", "focus": 0, "gap": 2},
+      "endBinding": null,
+      "startArrowhead": null,
+      "endArrowhead": "arrow"
+    }
+  ],
+  "appState": {"viewBackgroundColor": "#ffffff", "gridSize": 20},
+  "files": {}
+}
+```
+
+**2. Render it:**
+```bash
+cd .claude/skills/excalidraw-diagram/references && uv run python render_excalidraw.py ../../my-diagram.excalidraw
+```
+
+**3. View the PNG** and iterate. Now read on for the full methodology.
+
+---
+
 ## Customization
 
 **All colors and brand-specific styles live in one file:** `references/color-palette.md`. Read it before generating any diagram and use it as the single source of truth for all color choices — shape fills, strokes, text colors, evidence artifact backgrounds, everything.
@@ -550,3 +658,98 @@ uv run playwright install chromium
 25. **Arrows land correctly**: Arrows connect to intended elements without crossing others
 26. **Readable at export size**: Text is legible in the rendered PNG
 27. **Balanced composition**: No large empty voids or overcrowded regions
+
+---
+
+## Common Mistakes and How to Fix Them
+
+These are the top mistakes agents make repeatedly. Check this list before rendering.
+
+### 1. Forgetting `originalText`
+**Mistake**: Setting `text` but not `originalText`.
+**Result**: Text may not render or may behave oddly on edit.
+**Fix**: Always set `originalText` to the same value as `text`.
+
+### 2. Wrong `containerId` / `boundElements` pairing
+**Mistake**: Text element has `containerId: "rect1"` but `rect1`'s `boundElements` does not list the text element.
+**Result**: Text appears detached from the container, may float outside it.
+**Fix**: Bindings must be bidirectional. If text has `containerId: "rect1"`, then `rect1.boundElements` must include `{"id": "text_id", "type": "text"}`.
+
+### 3. Text overflowing container bounds
+**Mistake**: Container is 120px wide but text is 20+ characters at fontSize 16.
+**Result**: Text gets clipped at the container edge.
+**Fix**: Estimate text width as `chars * fontSize * 0.6`. Ensure container width exceeds this. When in doubt, make containers wider.
+
+### 4. Using `"transparent"` where a color is needed
+**Mistake**: Setting `strokeColor: "transparent"` on a shape, making it invisible.
+**Result**: An invisible element that still takes up space and may block arrows.
+**Fix**: Use an actual color from the palette. If you want a shape with no visible stroke, use a very light stroke matching the background.
+
+### 5. Placing text outside its container coordinates
+**Mistake**: Container at `(100, 100)` with `width: 180, height: 80`, but text at `(50, 50)`.
+**Result**: Text appears disconnected from its container.
+**Fix**: Text x/y should be inside the container bounds. For centered text: `text.x = container.x + (container.width - text.width) / 2`.
+
+### 6. Arrow `points` not matching `width`/`height`
+**Mistake**: Arrow `width: 200` but `points: [[0,0], [100, 0]]`.
+**Result**: Arrow may render incorrectly or Excalidraw may adjust it unexpectedly.
+**Fix**: The last point in the `points` array defines the arrow's extent. `width` and `height` should match the bounding box of all points.
+
+### 7. Duplicate element IDs
+**Mistake**: Two elements share the same `id`.
+**Result**: One element may be silently dropped or bindings may break.
+**Fix**: Use descriptive, unique IDs (e.g., `"auth_flow_rect"`, `"api_arrow_to_db"`). Run validation with `--dry-run` to catch duplicates.
+
+### 8. Arrows bound to non-existent elements
+**Mistake**: `startBinding: {"elementId": "old_id"}` after renaming or removing an element.
+**Result**: Arrow may render floating or cause errors.
+**Fix**: When renaming or removing elements, update all `startBinding`, `endBinding`, and `boundElements` references.
+
+### 9. All elements at the same size
+**Mistake**: Every rectangle is 180x90, every text is fontSize 16.
+**Result**: Flat, uninformative layout with no visual hierarchy.
+**Fix**: Use the size hierarchy: Hero (300x150), Primary (180x90), Secondary (120x60), Small (60x40). Vary font sizes: 28px titles, 20px labels, 16px body, 14px annotations.
+
+### 10. Missing `seed` values or using identical seeds
+**Mistake**: All elements share `seed: 12345` or omit seeds entirely.
+**Result**: Elements may render with identical roughness patterns (looks unnatural at roughness > 0).
+**Fix**: Use unique seeds per element. Namespace by section: section 1 uses 100xxx, section 2 uses 200xxx, etc.
+
+---
+
+## Render Script Reference
+
+The render script supports many options for different workflows:
+
+```bash
+# Basic render
+uv run python render_excalidraw.py diagram.excalidraw
+
+# Fast draft render (1x scale)
+uv run python render_excalidraw.py diagram.excalidraw --scale 1
+
+# SVG output (scalable, no rasterization)
+uv run python render_excalidraw.py diagram.excalidraw --svg
+
+# Dark mode
+uv run python render_excalidraw.py diagram.excalidraw --dark
+
+# Validate without rendering (fast)
+uv run python render_excalidraw.py diagram.excalidraw --dry-run
+
+# Get structured JSON output
+uv run python render_excalidraw.py diagram.excalidraw --json
+
+# Interactive HTML export
+uv run python render_excalidraw.py diagram.excalidraw --html
+
+# Generate shareable URL
+uv run python render_excalidraw.py diagram.excalidraw --url
+
+# Format presets
+uv run python render_excalidraw.py diagram.excalidraw --format presentation
+uv run python render_excalidraw.py diagram.excalidraw --format thumbnail
+
+# Verify setup
+uv run python render_excalidraw.py --check dummy
+```
