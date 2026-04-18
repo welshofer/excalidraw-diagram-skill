@@ -2,8 +2,12 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <!-- (5.4) Content Security Policy restricting script sources -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://esm.sh 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://esm.sh; img-src 'self' data:">
+  <!-- (5.4) Content Security Policy.
+       (v2 5.1) Dropped 'unsafe-inline' from script-src. Inline module scripts
+       are served under 'strict-dynamic' which trusts any script loaded
+       transitively from a script with a nonce. For the vendor path, blob:
+       URLs cover dynamic import from the vendor bundle. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://esm.sh blob: 'strict-dynamic' 'nonce-exc-template'; style-src 'unsafe-inline'; connect-src https://esm.sh; img-src 'self' data:">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { overflow: hidden; }
@@ -14,7 +18,7 @@
 <body>
   <div id="root"></div>
 
-  <script type="module">
+  <script type="module" nonce="exc-template">
     // (1.2) Pinned Excalidraw version for reproducible builds
     import { exportToSvg } from "https://esm.sh/@excalidraw/excalidraw@0.18.0?bundle";
 
@@ -48,13 +52,13 @@
         root.innerHTML = "";
         root.appendChild(svg);
 
-        window.__renderComplete = true;
+        // (v2 3.9) Only set __renderComplete on success; on failure only set __renderError.
         window.__renderError = null;
+        window.__renderComplete = true;
         return { success: true, width: svg.getAttribute("width"), height: svg.getAttribute("height") };
       } catch (err) {
-        window.__renderComplete = true;
-        window.__renderError = err.message;
-        return { success: false, error: err.message };
+        window.__renderError = err.message || String(err);
+        return { success: false, error: err.message || String(err) };
       }
     };
 
@@ -63,10 +67,11 @@
   </script>
 
   <!-- (4.10) Error handler for module load failures -->
-  <script>
+  <script nonce="exc-template">
     window.addEventListener("error", function(e) {
       window.__moduleError = e.message || "Unknown module load error";
     });
   </script>
 </body>
 </html>
+</content>

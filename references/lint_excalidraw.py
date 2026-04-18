@@ -27,7 +27,7 @@ from pathlib import Path
 
 # Import from the render module for shared validation
 sys.path.insert(0, str(Path(__file__).parent))
-from render_excalidraw import validate_excalidraw, compute_bounding_box, logger
+from render_excalidraw import validate_excalidraw, compute_bounding_box, logger, _ensure_main_handler
 
 
 # ---------------------------------------------------------------------------
@@ -112,6 +112,96 @@ def _boxes_overlap(a: tuple, b: tuple, threshold: float = 0.3) -> bool:
     return intersection / smaller_area > threshold
 
 
+def _check_frames(active: list[dict], id_map: dict, issues: list[dict]) -> None:
+    """Run frame-specific lint checks (v2 2.5).
+
+    - Frame-frame bounding box overlap (frames should not overlap each other).
+    - Child elements (via containerId or boundElements) must lie within frame bounds.
+    - Frame labels must fit within the frame's width.
+    """
+    frames = [e for e in active if e.get("type") == "frame"]
+    if not frames:
+        return
+
+    # Frame-frame overlap.
+    for i, a in enumerate(frames):
+        bbox_a = _get_element_bbox(a)
+        if bbox_a is None:
+            continue
+        for j, b in enumerate(frames):
+            if i >= j:
+                continue
+            bbox_b = _get_element_bbox(b)
+            if bbox_b is None:
+                continue
+            if _boxes_overlap(bbox_a, bbox_b, threshold=0.05):
+                issues.append({
+                    "severity": "warning",
+                    "code": "frame-overlap",
+                    "message": (
+                        f"Frames '{a.get('id')}' and '{b.get('id')}' overlap. "
+                        "Frames should be disjoint sections."
+                    ),
+                    "element_ids": [a.get("id"), b.get("id")],
+                })
+
+    # Child containment: elements referenced via boundElements or frameId.
+    for frame in frames:
+        fbbox = _get_element_bbox(frame)
+        if fbbox is None:
+            continue
+        fx1, fy1, fx2, fy2 = fbbox
+        child_ids: set[str] = set()
+        bound = frame.get("boundElements") or []
+        for be in bound:
+            if isinstance(be, dict) and be.get("id"):
+                child_ids.add(be["id"])
+        # Elements might also mark their own frameId.
+        for el in active:
+            if el.get("frameId") == frame.get("id"):
+                child_ids.add(el.get("id"))
+        for cid in child_ids:
+            child = id_map.get(cid)
+            if not child:
+                continue
+            cbb = _get_element_bbox(child)
+            if cbb is None:
+                continue
+            cx1, cy1, cx2, cy2 = cbb
+            if cx1 < fx1 - 1 or cy1 < fy1 - 1 or cx2 > fx2 + 1 or cy2 > fy2 + 1:
+                issues.append({
+                    "severity": "warning",
+                    "code": "frame-child-out-of-bounds",
+                    "message": (
+                        f"Element '{cid}' is a child of frame '{frame.get('id')}' "
+                        "but its bounding box extends outside the frame."
+                    ),
+                    "element_ids": [cid, frame.get("id")],
+                })
+
+    # Frame label fits.
+    for frame in frames:
+        name = frame.get("name") or frame.get("label") or ""
+        if not name:
+            continue
+        try:
+            fw = abs(float(frame.get("width", 0)))
+        except (TypeError, ValueError):
+            fw = 0
+        # Frame labels use a small pseudo font-size; estimate ~12px.
+        est = _estimate_text_width(name, 14, 2)
+        if fw and est > fw:
+            issues.append({
+                "severity": "info",
+                "code": "frame-label-overflow",
+                "message": (
+                    f"Frame '{frame.get('id')}' label '{name[:40]}' "
+                    f"(~{est:.0f}px) exceeds frame width ({fw:.0f}px)."
+                ),
+                "element_ids": [frame.get("id")],
+            })
+
+
 def lint_excalidraw(data: dict) -> list[dict]:
     """Lint an Excalidraw diagram for layout and design issues.
 
@@ -134,49 +224,62 @@ def lint_excalidraw(data: dict) -> list[dict]:
     id_map = {e["id"]: e for e in active if "id" in e}
 
     # --- Check 1: Overlapping bounding boxes ---
+    # (v2 1.4) Sweep-line scan: O(n log n) on average instead of O(n^2).
+    # (v2 1.6) Precompute each shape's bbox once, reused across comparisons.
+    # (v2 2.5) Frames are handled separately by _check_frames() below; here we
+    # skip non-frame overlap checks against frames but still inspect frame-frame
+    # pairs inside _check_frames().
     shape_types = {"rectangle", "ellipse", "diamond", "frame"}
-    shapes = [e for e in active if e.get("type") in shape_types]
-    checked_pairs = set()
-
-    for i, a in enumerate(shapes):
-        bbox_a = _get_element_bbox(a)
-        if bbox_a is None:
-            continue
-        for j, b in enumerate(shapes):
-            if i >= j:
+    non_frame_shapes = []
+    for e in active:
+        if e.get("type") in shape_types and e.get("type") != "frame":
+            bbox = _get_element_bbox(e)
+            if bbox is None:
                 continue
-            pair_key = (a.get("id"), b.get("id"))
-            if pair_key in checked_pairs:
-                continue
-            checked_pairs.add(pair_key)
+            non_frame_shapes.append((e, bbox))
 
-            bbox_b = _get_element_bbox(b)
-            if bbox_b is None:
-                continue
+    # Sort by x1 (left edge).
+    non_frame_shapes.sort(key=lambda t: t[1][0])
 
-            # Skip container-text pairs (text inside shape is expected)
-            a_bound = a.get("boundElements") or []
+    # Active set indexed by index in the sorted list; we discard elements whose
+    # x2 is already less than the current element's x1.
+    active_list: list[tuple] = []
+    seen_pairs: set[tuple] = set()
+    for a, bbox_a in non_frame_shapes:
+        ax1, _, ax2, _ = bbox_a
+        # Evict from the active list any box whose x2 < current x1.
+        active_list = [(b, bb) for (b, bb) in active_list if bb[2] >= ax1]
+        a_bound = a.get("boundElements") or []
+        a_bound_ids = {be.get("id") for be in a_bound if isinstance(be, dict)}
+        for b, bbox_b in active_list:
+            id_a = a.get("id")
+            id_b = b.get("id")
+            pair = (id_a, id_b) if (id_a or "") < (id_b or "") else (id_b, id_a)
+            if pair in seen_pairs:
+                continue
+            seen_pairs.add(pair)
             b_bound = b.get("boundElements") or []
-            a_bound_ids = {be.get("id") for be in a_bound if isinstance(be, dict)}
             b_bound_ids = {be.get("id") for be in b_bound if isinstance(be, dict)}
-            if b.get("id") in a_bound_ids or a.get("id") in b_bound_ids:
+            if id_b in a_bound_ids or id_a in b_bound_ids:
                 continue
-
-            # Skip if one is a frame containing the other
-            if a.get("type") == "frame" or b.get("type") == "frame":
-                continue
-
             if _boxes_overlap(bbox_a, bbox_b):
                 issues.append({
                     "severity": "warning",
                     "code": "overlap",
                     "message": (
-                        f"Elements '{a.get('id')}' ({a.get('type')}) and "
-                        f"'{b.get('id')}' ({b.get('type')}) have significantly "
+                        f"Elements '{id_a}' ({a.get('type')}) and "
+                        f"'{id_b}' ({b.get('type')}) have significantly "
                         f"overlapping bounding boxes"
                     ),
-                    "element_ids": [a.get("id"), b.get("id")],
+                    "element_ids": [id_a, id_b],
                 })
+        active_list.append((a, bbox_a))
+
+    # Restore a shapes list for later spacing/overlap sections.
+    shapes = [e for e, _ in non_frame_shapes]
+
+    # --- Frames-specific checks (v2 2.5) ---
+    _check_frames(active, id_map, issues)
 
     # --- Check 2: Text overflow in containers ---
     for el in active:
@@ -341,14 +444,30 @@ def auto_fix(data: dict, issues: list[dict]) -> dict:
             new_width = fix_spec["new_width"]
             if target_id in id_map:
                 container = id_map[target_id]
-                old_width = container.get("width", 0)
+                try:
+                    old_width = float(container.get("width", 0))
+                except (TypeError, ValueError):
+                    old_width = 0.0
                 container["width"] = new_width
-                # Re-center bound text elements
+                # (v2 3.1) Correct re-centering math.
+                # When the container grows by (new_width - old_width), the
+                # bound text should shift by half that delta to stay centered,
+                # and its width should grow by the full delta (clamped to the
+                # new container width minus a small inset).
+                delta = new_width - old_width
+                half_delta = delta / 2
                 for el in elements:
                     if isinstance(el, dict) and el.get("containerId") == target_id:
-                        delta = (new_width - old_width) / 2
-                        el["x"] = el.get("x", 0) + delta / 2
-                        el["width"] = el.get("width", 0) + delta
+                        try:
+                            ex = float(el.get("x", 0))
+                        except (TypeError, ValueError):
+                            ex = 0.0
+                        try:
+                            ew = float(el.get("width", 0))
+                        except (TypeError, ValueError):
+                            ew = 0.0
+                        el["x"] = ex + half_delta
+                        el["width"] = min(ew + delta, new_width - 20)
                 fixes_applied += 1
                 logger.info(
                     f"Fixed: widened '{target_id}' from {old_width} to {new_width}px"
@@ -370,13 +489,24 @@ def main() -> None:
         help="Auto-fix issues where possible (writes changes back to file)",
     )
     parser.add_argument("--verbose", "-v", action="store_true", help="Show detailed info")
+    parser.add_argument(
+        "--stats", action="store_true",
+        help="Print diagram metrics instead of lint output (v2 2.8).",
+    )
     args = parser.parse_args()
+
+    if args.stats:
+        # (v2 2.8) Delegate to render_excalidraw's stats printer.
+        from render_excalidraw import _print_stats
+        _print_stats(args.input, json_output=args.json_output)
+        return
 
     if not args.input.exists():
         logger.error(f"File not found: {args.input}")
         sys.exit(1)
 
-    raw = args.input.read_text(encoding="utf-8")
+    # (v2 3.10) utf-8-sig tolerates BOM-prefixed files from Windows editors.
+    raw = args.input.read_text(encoding="utf-8-sig")
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as e:
@@ -405,6 +535,23 @@ def main() -> None:
         }
         print(json.dumps(result, indent=2))
     else:
+        # (v2 6.3) Always print a header with counts, then detail lines.
+        errs = sum(1 for i in issues if i["severity"] == "error")
+        warns = sum(1 for i in issues if i["severity"] == "warning")
+        infos = sum(1 for i in issues if i["severity"] == "info")
+        is_tty = sys.stdout.isatty()
+        def _color(txt: str, code: str) -> str:
+            return f"\033[{code}m{txt}\033[0m" if is_tty else txt
+        summary = (
+            f"Lint: {errs} errors, {warns} warnings, {infos} info, "
+            f"{len(val_errors)} validation errors"
+        )
+        if errs or val_errors:
+            print(_color(summary, "31"))  # red
+        elif warns:
+            print(_color(summary, "33"))  # yellow
+        else:
+            print(_color(summary, "32"))  # green
         if not issues and not val_errors:
             print(f"No issues found in {args.input.name}")
         else:
@@ -425,4 +572,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    _ensure_main_handler()
     main()
