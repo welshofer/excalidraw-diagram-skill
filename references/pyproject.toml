@@ -25,6 +25,11 @@ render-excalidraw = "render_excalidraw:main"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
+# (v2 4.4) Custom marker for snapshot / end-to-end tests that need Chromium.
+markers = [
+    "integration: tests that require Chromium via Playwright",
+]
+addopts = "-m 'not integration'"
 
 [tool.ruff]
 line-length = 100
