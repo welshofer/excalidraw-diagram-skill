@@ -1538,17 +1538,43 @@ def _print_stats(input_path: Path, *, json_output: bool = False) -> None:
 # Open file (6.1)
 # ---------------------------------------------------------------------------
 def _open_file(path: Path) -> None:
-    """Open a file with the system's default application."""
+    """Open a file with the system's default application (v2 6.9).
+
+    - macOS: ``open``.
+    - Windows: ``os.startfile``.
+    - WSL (Linux w/ /proc/version containing Microsoft): ``explorer.exe``.
+    - Linux: prefer ``xdg-open``; fall back to ``gnome-open`` / ``kde-open``,
+      and finally print the path so the user can open it manually.
+    """
     system = platform.system()
     try:
         if system == "Darwin":
             subprocess.Popen(["open", str(path)])
-        elif system == "Linux":
-            subprocess.Popen(["xdg-open", str(path)])
-        elif system == "Windows":
+            return
+        if system == "Windows":
             os.startfile(str(path))  # type: ignore[attr-defined]
-        else:
-            logger.warning(f"Cannot auto-open on {system}")
+            return
+        if system == "Linux":
+            # Detect WSL.
+            proc_version = ""
+            try:
+                proc_version = Path("/proc/version").read_text(encoding="utf-8").lower()
+            except OSError:
+                pass
+            if "microsoft" in proc_version:
+                try:
+                    subprocess.Popen(["explorer.exe", str(path)])
+                    return
+                except FileNotFoundError:
+                    pass
+            from shutil import which
+            for opener in ("xdg-open", "gnome-open", "kde-open"):
+                if which(opener):
+                    subprocess.Popen([opener, str(path)])
+                    return
+            logger.info(f"Open manually: {path}")
+            return
+        logger.warning(f"Cannot auto-open on {system}")
     except Exception as e:
         logger.warning(f"Failed to open {path}: {e}")
 
