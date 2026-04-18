@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import hashlib
 import io
 import json
-import math
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock
 
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -55,10 +51,12 @@ class TestSocketFlag:
     def test_socket_flag_accepted(self):
         # Indirect: the parser accepts --socket via --help.
         import subprocess
+
         r = subprocess.run(
             [sys.executable, "render_excalidraw.py", "--help"],
             cwd=str(Path(__file__).parent.parent),
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         assert "--socket" in r.stdout
 
@@ -70,7 +68,7 @@ class TestAuthToken:
         rx._RenderServer._auth_token = "secret-token"
         rx._RenderServer._output_root = None
         status = {"code": None}
-        handler.rfile = io.BytesIO(b'{}')
+        handler.rfile = io.BytesIO(b"{}")
         handler.wfile = io.BytesIO()
         handler.headers = {"Content-Length": "2", "Host": "127.0.0.1"}
         handler.send_response = lambda code: status.__setitem__("code", code)
@@ -122,8 +120,12 @@ class TestOutputRootSandbox:
         rx._RenderServer._output_root = root
         status = {"code": None}
         body = json.dumps(
-            {"data": _diag([{"id": "r1", "type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10}]),
-             "output": "/etc/out.png"}
+            {
+                "data": _diag(
+                    [{"id": "r1", "type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10}]
+                ),
+                "output": "/etc/out.png",
+            }
         ).encode()
         handler.rfile = io.BytesIO(body)
         handler.wfile = io.BytesIO()
@@ -139,10 +141,19 @@ class TestOutputRootSandbox:
 # --- v2 5.7: HTML export escapes </ -----------------------------------------
 class TestHtmlEscape:
     def test_script_escape(self, tmp_path):
-        data = _diag([{
-            "id": "t1", "type": "text", "x": 0, "y": 0, "width": 10, "height": 10,
-            "text": "</script>alert(1)</script>",
-        }])
+        data = _diag(
+            [
+                {
+                    "id": "t1",
+                    "type": "text",
+                    "x": 0,
+                    "y": 0,
+                    "width": 10,
+                    "height": 10,
+                    "text": "</script>alert(1)</script>",
+                }
+            ]
+        )
         out = tmp_path / "a.html"
         rx._export_html(data, out)
         html = out.read_text(encoding="utf-8")
@@ -154,34 +165,78 @@ class TestHtmlEscape:
 # --- v2 5.8: NaN/Inf seed rejected ------------------------------------------
 class TestSeedFinite:
     def test_nan_rejected(self):
-        errs = rx.validate_excalidraw(_diag([{
-            "id": "r1", "type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10,
-            "seed": float("nan"),
-        }]))
+        errs = rx.validate_excalidraw(
+            _diag(
+                [
+                    {
+                        "id": "r1",
+                        "type": "rectangle",
+                        "x": 0,
+                        "y": 0,
+                        "width": 10,
+                        "height": 10,
+                        "seed": float("nan"),
+                    }
+                ]
+            )
+        )
         assert any("NaN or infinity" in e for e in errs)
 
     def test_inf_rejected(self):
-        errs = rx.validate_excalidraw(_diag([{
-            "id": "r1", "type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10,
-            "versionNonce": float("inf"),
-        }]))
+        errs = rx.validate_excalidraw(
+            _diag(
+                [
+                    {
+                        "id": "r1",
+                        "type": "rectangle",
+                        "x": 0,
+                        "y": 0,
+                        "width": 10,
+                        "height": 10,
+                        "versionNonce": float("inf"),
+                    }
+                ]
+            )
+        )
         assert any("NaN or infinity" in e for e in errs)
 
 
 # --- v2 5.9: protocol-relative URLs ------------------------------------------
 class TestProtocolRelativeURL:
     def test_slash_slash_rejected(self):
-        errs = rx.validate_excalidraw(_diag([{
-            "id": "r1", "type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10,
-            "link": "//evil.com/xss",
-        }]))
+        errs = rx.validate_excalidraw(
+            _diag(
+                [
+                    {
+                        "id": "r1",
+                        "type": "rectangle",
+                        "x": 0,
+                        "y": 0,
+                        "width": 10,
+                        "height": 10,
+                        "link": "//evil.com/xss",
+                    }
+                ]
+            )
+        )
         assert any("protocol-relative" in e for e in errs)
 
     def test_backslash_rejected(self):
-        errs = rx.validate_excalidraw(_diag([{
-            "id": "r1", "type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10,
-            "link": "\\\\server\\share",
-        }]))
+        errs = rx.validate_excalidraw(
+            _diag(
+                [
+                    {
+                        "id": "r1",
+                        "type": "rectangle",
+                        "x": 0,
+                        "y": 0,
+                        "width": 10,
+                        "height": 10,
+                        "link": "\\\\server\\share",
+                    }
+                ]
+            )
+        )
         assert any("protocol-relative" in e for e in errs)
 
 

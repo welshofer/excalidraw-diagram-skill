@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import io
 import json
-import logging
 import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -42,17 +39,23 @@ class TestSetupScript:
 class TestLintSummary:
     def test_lint_prints_summary(self, tmp_path):
         p = tmp_path / "d.excalidraw"
-        p.write_text(json.dumps({
-            "type": "excalidraw",
-            "version": 2,
-            "elements": [],
-            "appState": {},
-            "files": {},
-        }), encoding="utf-8")
+        p.write_text(
+            json.dumps(
+                {
+                    "type": "excalidraw",
+                    "version": 2,
+                    "elements": [],
+                    "appState": {},
+                    "files": {},
+                }
+            ),
+            encoding="utf-8",
+        )
         r = subprocess.run(
             [sys.executable, "lint_excalidraw.py", str(p)],
             cwd=str(Path(__file__).parent.parent),
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         assert "Lint:" in r.stdout
 
@@ -90,6 +93,7 @@ class TestOsGuidance:
         class _FailingCM:
             def __enter__(self_inner):
                 raise Exception("chromium missing")
+
             def __exit__(self_inner, *a):
                 return False
 
@@ -136,7 +140,13 @@ class TestCrossPlatformOpen:
         monkeypatch.setattr("platform.system", lambda: "Linux")
         # Fake /proc/version with "microsoft" in it.
         fake_text = "Linux version 5.10 (Microsoft Corp)"
-        monkeypatch.setattr(Path, "read_text", lambda self, **kw: fake_text if str(self) == "/proc/version" else Path.read_text(self, **kw))
+        monkeypatch.setattr(
+            Path,
+            "read_text",
+            lambda self, **kw: (
+                fake_text if str(self) == "/proc/version" else Path.read_text(self, **kw)
+            ),
+        )
         calls = []
 
         class _FakePopen:
@@ -156,6 +166,7 @@ class TestQuiet:
         r = subprocess.run(
             [sys.executable, "render_excalidraw.py", "--help"],
             cwd=str(Path(__file__).parent.parent),
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         assert "--quiet" in r.stdout

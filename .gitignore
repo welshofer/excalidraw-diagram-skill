@@ -1,5 +1,9 @@
 .venv/
 *.png
+# (v2 7.1) Keep committed example PNGs so GitHub previews render.
+!examples/*.png
+!examples/palettes/*.png
+!examples/hero.png
 __pycache__/
 .pytest_cache/
 *.excalidraw.hash
