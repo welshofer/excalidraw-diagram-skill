@@ -35,7 +35,10 @@ except ImportError:
 WIDTH = 800
 HEIGHT = 500
 BG_COLOR = "#ffffff"
-FRAME_DURATION_MS = 1500  # 1.5s per frame
+# (v2 7.6) Per-frame duration halved; combined with intermediate tween frames
+# we get smoother motion without dragging total length.
+FRAME_DURATION_MS = 900
+BRAND_URL = "github.com/welshofer/excalidraw-diagram-skill"
 
 
 def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:

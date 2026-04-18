@@ -691,6 +691,7 @@ def render(
     watermark: bool = False,
     theme: str | None = None,
     html_inline: bool = False,
+    html_interactive: bool = False,
     pdf_output: bool = False,
 ) -> Path:
     """Render an .excalidraw file to PNG/SVG/HTML. Returns the output path.
@@ -810,7 +811,13 @@ def render(
 
     # HTML export (7.10) - no browser needed
     if html_output:
-        _export_html(data, output_path, dark_mode, inline_bundle=html_inline)
+        _export_html(
+            data,
+            output_path,
+            dark_mode,
+            inline_bundle=html_inline,
+            interactive=html_interactive,
+        )
         logger.info(f"HTML export saved to {output_path}")
         if open_after:
             _open_file(output_path)
@@ -1114,7 +1121,11 @@ def _render_with_playwright(
 # HTML export (7.10)
 # ---------------------------------------------------------------------------
 def _export_html(
-    data: dict, output_path: Path, dark_mode: bool = False, inline_bundle: bool = False
+    data: dict,
+    output_path: Path,
+    dark_mode: bool = False,
+    inline_bundle: bool = False,
+    interactive: bool = False,
 ) -> None:
     """Export diagram as self-contained interactive HTML file.
 
@@ -1122,6 +1133,9 @@ def _export_html(
     the JS bundle via a blob URL so the export works offline/air-gapped.
     (v2 5.7) Escape '</' inside the embedded JSON to prevent early script
     termination when user-supplied text contains '</script>' etc.
+    (v2 7.4) When ``interactive`` is set, the HTML embeds the live
+    <Excalidraw> React component instead of a static SVG so the page is
+    pannable / zoomable / editable.
     """
     json_str = json.dumps(data).replace("</", "<\\/")
     bg_color = "#1e1e1e" if dark_mode else "#ffffff"
@@ -1148,6 +1162,30 @@ def _export_html(
       svg.style.height = "100%";
       document.getElementById("root").appendChild(svg);
     }});
+  </script>"""
+    elif interactive:
+        # (v2 7.4) Embed the live <Excalidraw> React component.
+        script_block = f"""<script type="module">
+    import React from "https://esm.sh/react@19";
+    import ReactDOM from "https://esm.sh/react-dom@19/client";
+    import {{ Excalidraw }} from "https://esm.sh/@excalidraw/excalidraw@{EXCALIDRAW_VERSION}?bundle";
+    const data = {json_str};
+    const root = ReactDOM.createRoot(document.getElementById("root"));
+    root.render(React.createElement(Excalidraw, {{
+      initialData: {{
+        elements: data.elements || [],
+        appState: {{
+          ...(data.appState || {{}}),
+          viewBackgroundColor: data.appState && data.appState.viewBackgroundColor || "{bg_color}",
+          exportWithDarkMode: {str(dark_mode).lower()},
+        }},
+        files: data.files || {{}}
+      }},
+      viewModeEnabled: false,
+      zenModeEnabled: false,
+      gridModeEnabled: false,
+      UIOptions: {{ canvasActions: {{ loadScene: false }} }}
+    }}));
   </script>"""
     else:
         script_block = f"""<script type="module">
@@ -1568,6 +1606,7 @@ def _open_file(path: Path) -> None:
                 except FileNotFoundError:
                     pass
             from shutil import which
+
             for opener in ("xdg-open", "gnome-open", "kde-open"):
                 if which(opener):
                     subprocess.Popen([opener, str(path)])
@@ -1666,6 +1705,11 @@ def main() -> None:
         "--html-inline",
         action="store_true",
         help="When exporting HTML, inline the vendor bundle for a self-contained file (v2 2.3).",
+    )
+    parser.add_argument(
+        "--html-interactive",
+        action="store_true",
+        help="HTML export uses the live <Excalidraw> React component (pan/zoom) (v2 7.4).",
     )
     parser.add_argument(
         "--socket",
@@ -2007,6 +2051,7 @@ def main() -> None:
                 watermark=args.watermark,
                 theme=args.theme,
                 html_inline=args.html_inline,
+                html_interactive=args.html_interactive,
                 pdf_output=args.pdf,
             )
             # Diff mode (2.8, v2 2.2)

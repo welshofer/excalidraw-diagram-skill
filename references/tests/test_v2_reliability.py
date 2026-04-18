@@ -6,14 +6,11 @@ import io
 import json
 import logging
 import socket
-import subprocess
 import sys
-import threading
 import time
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -42,7 +39,6 @@ class TestRuffInCI:
 class TestServerPostIntegration:
     def test_render_server_post_with_fake_page(self, tmp_path):
         """Drive _handle_render end-to-end with a fake playwright page."""
-        from io import BytesIO
 
         captured = {"status": None, "body": b""}
 
@@ -83,7 +79,9 @@ class TestServerPostIntegration:
         captured["write_path"] = png_out
         body = json.dumps(
             {
-                "data": _diag([{"id": "r1", "type": "rectangle", "x": 0, "y": 0, "width": 50, "height": 50}]),
+                "data": _diag(
+                    [{"id": "r1", "type": "rectangle", "x": 0, "y": 0, "width": 50, "height": 50}]
+                ),
                 "output": str(png_out),
             }
         ).encode()
@@ -127,6 +125,7 @@ class TestSnapshotMarker:
         # pytest.ini markers allow our CI to filter integration tests; we just
         # check that the config file doesn't reject the marker.
         import pytest as _pytest
+
         assert _pytest  # trivial; ensures pytest is importable here
 
 
@@ -137,7 +136,9 @@ class TestLibraryLogger:
         # a NullHandler (no StreamHandler attached).
         handlers = rx.logger.handlers
         for h in handlers:
-            assert not (isinstance(h, logging.StreamHandler) and not isinstance(h, logging.NullHandler)), handlers
+            assert not (
+                isinstance(h, logging.StreamHandler) and not isinstance(h, logging.NullHandler)
+            ), handlers
 
 
 # --- v2 4.6: connectivity retries --------------------------------------------
@@ -162,6 +163,7 @@ class TestVendorVersionMismatch:
         bundle = tmp_path / "excalidraw-bundle.js"
         bundle.write_text("export const exportToSvg = () => {};", encoding="utf-8")
         import hashlib
+
         integrity = {
             "version": "99.0.0",
             "method": "test",
@@ -184,6 +186,7 @@ class TestSelfTest:
         # Patch render to return quickly with a valid PNG.
         def fake_render(excalidraw_path, output_path, **kwargs):
             from PIL import Image
+
             Image.new("RGB", (50, 50), "white").save(str(output_path))
             return output_path
 
@@ -205,8 +208,13 @@ class TestJsonLogFormatter:
         # Emit a record and read it back through formatter.
         formatter = rx._JsonLineFormatter()
         record = logging.LogRecord(
-            name="excalidraw_render", level=logging.INFO, pathname=__file__,
-            lineno=0, msg="hello", args=(), exc_info=None,
+            name="excalidraw_render",
+            level=logging.INFO,
+            pathname=__file__,
+            lineno=0,
+            msg="hello",
+            args=(),
+            exc_info=None,
         )
         out = formatter.format(record)
         parsed = json.loads(out)

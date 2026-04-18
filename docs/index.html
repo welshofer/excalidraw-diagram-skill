@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Excalidraw Diagram Skill</title>
+  <style>
+    :root {
+      --ink: #1e1e1e;
+      --bg: #fefefe;
+      --accent: #1971c2;
+      --muted: #868e96;
+      --card: #f8f9fa;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.5;
+    }
+    header {
+      padding: 4rem 2rem 2rem;
+      text-align: center;
+      border-bottom: 1px solid #e9ecef;
+    }
+    h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    .subtitle { color: var(--muted); font-size: 1.1rem; max-width: 640px; margin: 0 auto; }
+    .cta { margin-top: 2rem; }
+    .cta a {
+      display: inline-block;
+      background: var(--accent);
+      color: white;
+      padding: 0.75rem 1.5rem;
+      border-radius: 4px;
+      text-decoration: none;
+      font-weight: 600;
+      margin: 0 0.25rem;
+    }
+    .cta a.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+    main { max-width: 1080px; margin: 0 auto; padding: 3rem 2rem; }
+    section { margin-bottom: 3rem; }
+    h2 { font-size: 1.75rem; margin-bottom: 1rem; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .card img { width: 100%; height: auto; display: block; }
+    .card-title { padding: 1rem; font-weight: 600; }
+    pre {
+      background: #1e1e1e;
+      color: #f8f9fa;
+      padding: 1rem;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-size: 0.9rem;
+    }
+    footer {
+      padding: 2rem;
+      text-align: center;
+      color: var(--muted);
+      border-top: 1px solid #e9ecef;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Excalidraw Diagram Skill</h1>
+    <p class="subtitle">
+      A coding-agent skill that generates Excalidraw diagrams which argue visually --
+      structure mirrors concept. Fan-outs for one-to-many. Timelines for sequence.
+      Convergence for aggregation. No uniform card grids.
+    </p>
+    <p class="cta">
+      <a href="https://github.com/welshofer/excalidraw-diagram-skill">View on GitHub</a>
+      <a class="secondary" href="../GALLERY.md">Browse Gallery</a>
+    </p>
+  </header>
+
+  <main>
+    <section>
+      <h2>Gallery</h2>
+      <div class="grid">
+        <div class="card">
+          <img src="../examples/simple-flow.png" alt="Simple flow" />
+          <div class="card-title">Simple Flow</div>
+        </div>
+        <div class="card">
+          <img src="../examples/decision-flow.png" alt="Decision flow" />
+          <div class="card-title">Decision Flow</div>
+        </div>
+        <div class="card">
+          <img src="../examples/rag-pipeline.png" alt="RAG pipeline" />
+          <div class="card-title">RAG Pipeline</div>
+        </div>
+        <div class="card">
+          <img src="../examples/cycle-feedback-loop.png" alt="Cycle feedback loop" />
+          <div class="card-title">Cycle / Feedback Loop</div>
+        </div>
+        <div class="card">
+          <img src="../examples/ag-ui-protocol.png" alt="AG-UI protocol" />
+          <div class="card-title">AG-UI Protocol</div>
+        </div>
+        <div class="card">
+          <img src="../examples/all-patterns.png" alt="Pattern catalog" />
+          <div class="card-title">All Patterns Catalog</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Quick Start</h2>
+<pre>git clone https://github.com/welshofer/excalidraw-diagram-skill
+cd excalidraw-diagram-skill
+./references/setup.sh
+uv run python references/render_excalidraw.py examples/simple-flow.excalidraw</pre>
+    </section>
+  </main>
+
+  <footer>
+    Excalidraw Diagram Skill -- MIT Licensed -- (v2 7.10) pages deploy
+  </footer>
+</body>
+</html>
