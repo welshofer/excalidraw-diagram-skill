@@ -225,6 +225,7 @@ def compile_shortform(raw: str) -> dict:
 def main() -> None:
     import argparse
     import sys
+
     parser = argparse.ArgumentParser(description="Compile shortform DSL to Excalidraw JSON")
     parser.add_argument("input", type=str, help="Path to shortform file, or '-' for stdin")
     parser.add_argument("--output", "-o", type=str, default=None)

@@ -27,7 +27,7 @@ from pathlib import Path
 
 # Import from the render module for shared validation
 sys.path.insert(0, str(Path(__file__).parent))
-from render_excalidraw import validate_excalidraw, compute_bounding_box, logger, _ensure_main_handler
+from render_excalidraw import validate_excalidraw, logger, _ensure_main_handler
 
 
 # ---------------------------------------------------------------------------
@@ -35,9 +35,9 @@ from render_excalidraw import validate_excalidraw, compute_bounding_box, logger,
 # ---------------------------------------------------------------------------
 # Average character width as a fraction of fontSize
 CHAR_WIDTH_FACTORS = {
-    1: 0.55,   # Virgil (hand-drawn) - wider
-    2: 0.52,   # Helvetica (sans-serif)
-    3: 0.60,   # Monospace (fixed-width) - widest
+    1: 0.55,  # Virgil (hand-drawn) - wider
+    2: 0.52,  # Helvetica (sans-serif)
+    3: 0.60,  # Monospace (fixed-width) - widest
 }
 DEFAULT_CHAR_WIDTH_FACTOR = 0.55
 
@@ -135,15 +135,17 @@ def _check_frames(active: list[dict], id_map: dict, issues: list[dict]) -> None:
             if bbox_b is None:
                 continue
             if _boxes_overlap(bbox_a, bbox_b, threshold=0.05):
-                issues.append({
-                    "severity": "warning",
-                    "code": "frame-overlap",
-                    "message": (
-                        f"Frames '{a.get('id')}' and '{b.get('id')}' overlap. "
-                        "Frames should be disjoint sections."
-                    ),
-                    "element_ids": [a.get("id"), b.get("id")],
-                })
+                issues.append(
+                    {
+                        "severity": "warning",
+                        "code": "frame-overlap",
+                        "message": (
+                            f"Frames '{a.get('id')}' and '{b.get('id')}' overlap. "
+                            "Frames should be disjoint sections."
+                        ),
+                        "element_ids": [a.get("id"), b.get("id")],
+                    }
+                )
 
     # Child containment: elements referenced via boundElements or frameId.
     for frame in frames:
@@ -169,15 +171,17 @@ def _check_frames(active: list[dict], id_map: dict, issues: list[dict]) -> None:
                 continue
             cx1, cy1, cx2, cy2 = cbb
             if cx1 < fx1 - 1 or cy1 < fy1 - 1 or cx2 > fx2 + 1 or cy2 > fy2 + 1:
-                issues.append({
-                    "severity": "warning",
-                    "code": "frame-child-out-of-bounds",
-                    "message": (
-                        f"Element '{cid}' is a child of frame '{frame.get('id')}' "
-                        "but its bounding box extends outside the frame."
-                    ),
-                    "element_ids": [cid, frame.get("id")],
-                })
+                issues.append(
+                    {
+                        "severity": "warning",
+                        "code": "frame-child-out-of-bounds",
+                        "message": (
+                            f"Element '{cid}' is a child of frame '{frame.get('id')}' "
+                            "but its bounding box extends outside the frame."
+                        ),
+                        "element_ids": [cid, frame.get("id")],
+                    }
+                )
 
     # Frame label fits.
     for frame in frames:
@@ -191,15 +195,17 @@ def _check_frames(active: list[dict], id_map: dict, issues: list[dict]) -> None:
         # Frame labels use a small pseudo font-size; estimate ~12px.
         est = _estimate_text_width(name, 14, 2)
         if fw and est > fw:
-            issues.append({
-                "severity": "info",
-                "code": "frame-label-overflow",
-                "message": (
-                    f"Frame '{frame.get('id')}' label '{name[:40]}' "
-                    f"(~{est:.0f}px) exceeds frame width ({fw:.0f}px)."
-                ),
-                "element_ids": [frame.get("id")],
-            })
+            issues.append(
+                {
+                    "severity": "info",
+                    "code": "frame-label-overflow",
+                    "message": (
+                        f"Frame '{frame.get('id')}' label '{name[:40]}' "
+                        f"(~{est:.0f}px) exceeds frame width ({fw:.0f}px)."
+                    ),
+                    "element_ids": [frame.get("id")],
+                }
+            )
 
 
 def lint_excalidraw(data: dict) -> list[dict]:
@@ -263,16 +269,18 @@ def lint_excalidraw(data: dict) -> list[dict]:
             if id_b in a_bound_ids or id_a in b_bound_ids:
                 continue
             if _boxes_overlap(bbox_a, bbox_b):
-                issues.append({
-                    "severity": "warning",
-                    "code": "overlap",
-                    "message": (
-                        f"Elements '{id_a}' ({a.get('type')}) and "
-                        f"'{id_b}' ({b.get('type')}) have significantly "
-                        f"overlapping bounding boxes"
-                    ),
-                    "element_ids": [id_a, id_b],
-                })
+                issues.append(
+                    {
+                        "severity": "warning",
+                        "code": "overlap",
+                        "message": (
+                            f"Elements '{id_a}' ({a.get('type')}) and "
+                            f"'{id_b}' ({b.get('type')}) have significantly "
+                            f"overlapping bounding boxes"
+                        ),
+                        "element_ids": [id_a, id_b],
+                    }
+                )
         active_list.append((a, bbox_a))
 
     # Restore a shapes list for later spacing/overlap sections.
@@ -311,22 +319,24 @@ def lint_excalidraw(data: dict) -> list[dict]:
 
         if usable_width > 0 and est_width > usable_width:
             overflow_pct = ((est_width - usable_width) / usable_width) * 100
-            issues.append({
-                "severity": "warning",
-                "code": "text-overflow",
-                "message": (
-                    f"Text in '{el.get('id')}' ('{text[:30]}...') likely overflows "
-                    f"container '{container_id}' ({container_type}) by ~{overflow_pct:.0f}%. "
-                    f"Estimated text width: {est_width:.0f}px, "
-                    f"usable container width: {usable_width:.0f}px"
-                ),
-                "element_ids": [el.get("id"), container_id],
-                "fix": {
-                    "action": "widen_container",
-                    "target": container_id,
-                    "new_width": int(est_width / usable_factor + 40),
-                },
-            })
+            issues.append(
+                {
+                    "severity": "warning",
+                    "code": "text-overflow",
+                    "message": (
+                        f"Text in '{el.get('id')}' ('{text[:30]}...') likely overflows "
+                        f"container '{container_id}' ({container_type}) by ~{overflow_pct:.0f}%. "
+                        f"Estimated text width: {est_width:.0f}px, "
+                        f"usable container width: {usable_width:.0f}px"
+                    ),
+                    "element_ids": [el.get("id"), container_id],
+                    "fix": {
+                        "action": "widen_container",
+                        "target": container_id,
+                        "new_width": int(est_width / usable_factor + 40),
+                    },
+                }
+            )
 
     # --- Check 3: Identical coordinates ---
     coord_map: dict[tuple, list[str]] = {}
@@ -342,15 +352,17 @@ def lint_excalidraw(data: dict) -> list[dict]:
     for coord, ids in coord_map.items():
         if len(ids) > 1:
             # Filter out text labels that might legitimately share coordinates
-            issues.append({
-                "severity": "info",
-                "code": "identical-coords",
-                "message": (
-                    f"Elements {ids} share identical coordinates ({coord[0]}, {coord[1]}). "
-                    f"This may indicate copy-paste without repositioning."
-                ),
-                "element_ids": ids,
-            })
+            issues.append(
+                {
+                    "severity": "info",
+                    "code": "identical-coords",
+                    "message": (
+                        f"Elements {ids} share identical coordinates ({coord[0]}, {coord[1]}). "
+                        f"This may indicate copy-paste without repositioning."
+                    ),
+                    "element_ids": ids,
+                }
+            )
 
     # --- Check 4: Spacing consistency ---
     # Check horizontal and vertical spacing between adjacent shapes
@@ -371,16 +383,18 @@ def lint_excalidraw(data: dict) -> list[dict]:
             avg_gap = sum(gap_values) / len(gap_values)
             for gap_val, id_a, id_b in h_gaps:
                 if avg_gap > 0 and abs(gap_val - avg_gap) / avg_gap > 0.5:
-                    issues.append({
-                        "severity": "info",
-                        "code": "spacing-inconsistent",
-                        "message": (
-                            f"Horizontal gap between '{id_a}' and '{id_b}' "
-                            f"({gap_val:.0f}px) differs significantly from "
-                            f"average gap ({avg_gap:.0f}px)"
-                        ),
-                        "element_ids": [id_a, id_b],
-                    })
+                    issues.append(
+                        {
+                            "severity": "info",
+                            "code": "spacing-inconsistent",
+                            "message": (
+                                f"Horizontal gap between '{id_a}' and '{id_b}' "
+                                f"({gap_val:.0f}px) differs significantly from "
+                                f"average gap ({avg_gap:.0f}px)"
+                            ),
+                            "element_ids": [id_a, id_b],
+                        }
+                    )
 
     # --- Check 5: Unbound arrows ---
     for el in active:
@@ -389,15 +403,17 @@ def lint_excalidraw(data: dict) -> list[dict]:
         start = el.get("startBinding")
         end = el.get("endBinding")
         if not start and not end:
-            issues.append({
-                "severity": "warning",
-                "code": "unbound-arrow",
-                "message": (
-                    f"Arrow '{el.get('id')}' has no startBinding or endBinding. "
-                    f"It is not connected to any shape."
-                ),
-                "element_ids": [el.get("id")],
-            })
+            issues.append(
+                {
+                    "severity": "warning",
+                    "code": "unbound-arrow",
+                    "message": (
+                        f"Arrow '{el.get('id')}' has no startBinding or endBinding. "
+                        f"It is not connected to any shape."
+                    ),
+                    "element_ids": [el.get("id")],
+                }
+            )
 
     # --- Check 6: Tiny elements ---
     for el in active:
@@ -409,15 +425,17 @@ def lint_excalidraw(data: dict) -> list[dict]:
             # Skip marker dots (small ellipses are intentional)
             if el.get("type") == "ellipse" and w <= 15 and h <= 15:
                 continue
-            issues.append({
-                "severity": "info",
-                "code": "tiny-element",
-                "message": (
-                    f"Element '{el.get('id')}' ({el.get('type')}) is very small "
-                    f"({w:.0f}x{h:.0f}px). This may be invisible or hard to see."
-                ),
-                "element_ids": [el.get("id")],
-            })
+            issues.append(
+                {
+                    "severity": "info",
+                    "code": "tiny-element",
+                    "message": (
+                        f"Element '{el.get('id')}' ({el.get('type')}) is very small "
+                        f"({w:.0f}x{h:.0f}px). This may be invisible or hard to see."
+                    ),
+                    "element_ids": [el.get("id")],
+                }
+            )
 
     return issues
 
@@ -429,6 +447,7 @@ def auto_fix(data: dict, issues: list[dict]) -> dict:
     - text-overflow: widens the container to fit text
     """
     import copy
+
     fixed = copy.deepcopy(data)
     elements = fixed.get("elements", [])
     id_map = {e["id"]: e for e in elements if isinstance(e, dict) and "id" in e}
@@ -468,9 +487,7 @@ def auto_fix(data: dict, issues: list[dict]) -> dict:
                         el["width"] = new_text_width
                         el["x"] = new_container_center_x - new_text_width / 2
                 fixes_applied += 1
-                logger.info(
-                    f"Fixed: widened '{target_id}' from {old_width} to {new_width}px"
-                )
+                logger.info(f"Fixed: widened '{target_id}' from {old_width} to {new_width}px")
 
     if fixes_applied:
         logger.info(f"Applied {fixes_applied} auto-fix(es)")
@@ -484,12 +501,14 @@ def main() -> None:
     parser.add_argument("input", type=Path, help="Path to .excalidraw JSON file")
     parser.add_argument("--json", action="store_true", dest="json_output", help="Output as JSON")
     parser.add_argument(
-        "--fix", action="store_true",
+        "--fix",
+        action="store_true",
         help="Auto-fix issues where possible (writes changes back to file)",
     )
     parser.add_argument("--verbose", "-v", action="store_true", help="Show detailed info")
     parser.add_argument(
-        "--stats", action="store_true",
+        "--stats",
+        action="store_true",
         help="Print diagram metrics instead of lint output (v2 2.8).",
     )
     args = parser.parse_args()
@@ -497,6 +516,7 @@ def main() -> None:
     if args.stats:
         # (v2 2.8) Delegate to render_excalidraw's stats printer.
         from render_excalidraw import _print_stats
+
         _print_stats(args.input, json_output=args.json_output)
         return
 
@@ -539,8 +559,10 @@ def main() -> None:
         warns = sum(1 for i in issues if i["severity"] == "warning")
         infos = sum(1 for i in issues if i["severity"] == "info")
         is_tty = sys.stdout.isatty()
+
         def _color(txt: str, code: str) -> str:
             return f"\033[{code}m{txt}\033[0m" if is_tty else txt
+
         summary = (
             f"Lint: {errs} errors, {warns} warnings, {infos} info, "
             f"{len(val_errors)} validation errors"
@@ -561,9 +583,7 @@ def main() -> None:
     # Auto-fix mode
     if args.fix and any(i.get("fix") for i in issues):
         fixed_data = auto_fix(data, issues)
-        args.input.write_text(
-            json.dumps(fixed_data, indent=2) + "\n", encoding="utf-8"
-        )
+        args.input.write_text(json.dumps(fixed_data, indent=2) + "\n", encoding="utf-8")
         print(f"Fixes written to {args.input}")
 
     if any(i["severity"] == "error" for i in issues) or val_errors:

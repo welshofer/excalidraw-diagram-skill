@@ -5,7 +5,6 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import pytest
 
 # Add parent directory to path so we can import the module
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -111,7 +110,8 @@ class TestBindingValidation:
 
     def test_arrow_binding_to_nonexistent(self):
         arrow = _make_element(
-            id="arrow1", type="arrow",
+            id="arrow1",
+            type="arrow",
             startBinding={"elementId": "nonexistent", "focus": 0, "gap": 2},
             points=[[0, 0], [100, 0]],
         )
@@ -159,6 +159,7 @@ class TestSeedValidation:
 
     def test_negative_seed_warns(self, caplog):
         import logging
+
         with caplog.at_level(logging.WARNING, logger="excalidraw_render"):
             el = _make_element(seed=-1)
             data = _make_diagram([el])
@@ -167,6 +168,7 @@ class TestSeedValidation:
 
     def test_huge_seed_warns(self, caplog):
         import logging
+
         with caplog.at_level(logging.WARNING, logger="excalidraw_render"):
             el = _make_element(seed=2**54)
             data = _make_diagram([el])

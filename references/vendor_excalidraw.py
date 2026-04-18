@@ -21,7 +21,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-import os
 import shutil
 import subprocess
 import sys
@@ -76,18 +75,21 @@ def build_bundle() -> Path:
 
         # Bundle with esbuild into a single file
         print("  Bundling with esbuild...")
-        _run([
-            str(tmppath / "node_modules" / ".bin" / "esbuild"),
-            str(tmppath / "entry.js"),
-            "--bundle",
-            "--format=esm",
-            "--platform=browser",
-            "--target=es2020",
-            f"--outfile={str(BUNDLE_PATH)}",
-            "--minify",
-            "--define:process.env.NODE_ENV=\"production\"",
-            # Externalize nothing -- we want a fully self-contained bundle
-        ], cwd=tmppath)
+        _run(
+            [
+                str(tmppath / "node_modules" / ".bin" / "esbuild"),
+                str(tmppath / "entry.js"),
+                "--bundle",
+                "--format=esm",
+                "--platform=browser",
+                "--target=es2020",
+                f"--outfile={str(BUNDLE_PATH)}",
+                "--minify",
+                '--define:process.env.NODE_ENV="production"',
+                # Externalize nothing -- we want a fully self-contained bundle
+            ],
+            cwd=tmppath,
+        )
 
     content = BUNDLE_PATH.read_bytes()
     size_mb = len(content) / (1024 * 1024)

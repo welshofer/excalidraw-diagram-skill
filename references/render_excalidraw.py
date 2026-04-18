@@ -155,9 +155,7 @@ def validate_excalidraw(data: dict, max_elements: int = DEFAULT_MAX_ELEMENTS) ->
         # Check required common fields
         for field in required_common:
             if field not in el:
-                errors.append(
-                    f"Element '{el_id}' ({el_path}) missing required field '{field}'"
-                )
+                errors.append(f"Element '{el_id}' ({el_path}) missing required field '{field}'")
 
         # Duplicate ID detection (3.9) -- in-stream, no separate pass.
         if "id" in el:
@@ -177,6 +175,7 @@ def validate_excalidraw(data: dict, max_elements: int = DEFAULT_MAX_ELEMENTS) ->
 
         # Seed value validation (5.7, v2 5.8 rejects NaN/inf)
         import math as _math
+
         for seed_field in ("seed", "versionNonce"):
             val = el.get(seed_field)
             if val is not None:
@@ -319,22 +318,30 @@ def compute_bounding_box(elements: list[dict]) -> tuple[float, float, float, flo
         try:
             x = float(el.get("x", 0))
         except (TypeError, ValueError):
-            logger.warning(f"Element '{el_id}' has non-numeric 'x': {el.get('x')!r}, defaulting to 0")
+            logger.warning(
+                f"Element '{el_id}' has non-numeric 'x': {el.get('x')!r}, defaulting to 0"
+            )
             x = 0.0
         try:
             y = float(el.get("y", 0))
         except (TypeError, ValueError):
-            logger.warning(f"Element '{el_id}' has non-numeric 'y': {el.get('y')!r}, defaulting to 0")
+            logger.warning(
+                f"Element '{el_id}' has non-numeric 'y': {el.get('y')!r}, defaulting to 0"
+            )
             y = 0.0
         try:
             w = float(el.get("width", 0))
         except (TypeError, ValueError):
-            logger.warning(f"Element '{el_id}' has non-numeric 'width': {el.get('width')!r}, defaulting to 0")
+            logger.warning(
+                f"Element '{el_id}' has non-numeric 'width': {el.get('width')!r}, defaulting to 0"
+            )
             w = 0.0
         try:
             h = float(el.get("height", 0))
         except (TypeError, ValueError):
-            logger.warning(f"Element '{el_id}' has non-numeric 'height': {el.get('height')!r}, defaulting to 0")
+            logger.warning(
+                f"Element '{el_id}' has non-numeric 'height': {el.get('height')!r}, defaulting to 0"
+            )
             h = 0.0
 
         # For arrows/lines, points array defines the shape relative to x,y
@@ -344,9 +351,7 @@ def compute_bounding_box(elements: list[dict]) -> tuple[float, float, float, flo
                 for pt in points:
                     # Handle malformed points (3.1)
                     if not isinstance(pt, (list, tuple)) or len(pt) < 2:
-                        logger.warning(
-                            f"Element '{el_id}' has malformed point: {pt!r}, skipping"
-                        )
+                        logger.warning(f"Element '{el_id}' has malformed point: {pt!r}, skipping")
                         continue
                     try:
                         px = float(pt[0])
@@ -404,10 +409,9 @@ def validate_path(path: Path, kind: str = "input") -> list[str]:
         except OSError as e:
             # errno 62 is ELOOP on macOS/Linux.
             import errno as _errno
+
             if e.errno in (_errno.ELOOP, _errno.ENAMETOOLONG):
-                errors.append(
-                    f"Refusing to resolve {raw_str!r}: symlink cycle detected ({e})."
-                )
+                errors.append(f"Refusing to resolve {raw_str!r}: symlink cycle detected ({e}).")
                 return errors
             break
 
@@ -415,8 +419,7 @@ def validate_path(path: Path, kind: str = "input") -> list[str]:
         suffix = path.suffix.lower()
         if suffix not in VALID_OUTPUT_EXTENSIONS:
             errors.append(
-                f"Output file must have one of {VALID_OUTPUT_EXTENSIONS} extension, "
-                f"got '{suffix}'"
+                f"Output file must have one of {VALID_OUTPUT_EXTENSIONS} extension, got '{suffix}'"
             )
         for sys_dir in SYSTEM_DIRS:
             # Check both raw and resolved paths (macOS resolves /etc -> /private/etc)
@@ -733,6 +736,7 @@ def render(
     if theme and theme != "default":
         try:
             from themes import apply_theme  # type: ignore
+
             apply_theme(data, theme)
         except ImportError:
             logger.warning("themes module not available; skipping --theme")
@@ -776,8 +780,10 @@ def render(
             "elements": len(elements),
             "viewport": {"width": vp_width, "height": vp_height},
             "bounding_box": {
-                "min_x": min_x, "min_y": min_y,
-                "max_x": max_x, "max_y": max_y,
+                "min_x": min_x,
+                "min_y": min_y,
+                "max_x": max_x,
+                "max_y": max_y,
             },
             "warnings": [],
         }
@@ -789,8 +795,13 @@ def render(
         return output_path
 
     # Check cache (4.6)
-    if not force and not svg_output and not html_output and _check_cache(excalidraw_path, output_path, raw):
-        logger.info(f"Cache hit -- skipping render (use --force to override)")
+    if (
+        not force
+        and not svg_output
+        and not html_output
+        and _check_cache(excalidraw_path, output_path, raw)
+    ):
+        logger.info("Cache hit -- skipping render (use --force to override)")
         if json_output:
             print(json.dumps({"success": True, "output": str(output_path), "cached": True}))
         else:
@@ -811,6 +822,7 @@ def render(
         prev_snapshot = output_path.with_suffix(output_path.suffix + ".prev")
         try:
             import shutil as _shutil
+
             _shutil.copy2(str(output_path), str(prev_snapshot))
             _LAST_PREV_SNAPSHOT[str(output_path)] = prev_snapshot
         except OSError:
@@ -886,7 +898,10 @@ def render(
             last_error = e
             error_str = str(e).lower()
             # Only retry on transient errors
-            if any(kw in error_str for kw in ("timeout", "crash", "target closed", "connection refused")):
+            if any(
+                kw in error_str
+                for kw in ("timeout", "crash", "target closed", "connection refused")
+            ):
                 logger.warning(f"Transient error on attempt {attempt + 1}: {e}")
                 continue
             raise RenderError(f"Render failed: {e}")
@@ -987,7 +1002,11 @@ def _render_with_playwright(
             result = page.evaluate("(data) => window.renderDiagram(data)", data)
 
             if not result or not result.get("success"):
-                error_msg = result.get("error", "Unknown render error") if result else "renderDiagram returned null"
+                error_msg = (
+                    result.get("error", "Unknown render error")
+                    if result
+                    else "renderDiagram returned null"
+                )
                 raise RenderError(f"Render failed: {error_msg}")
 
             # Wait for render completion signal
@@ -1057,8 +1076,7 @@ def _render_with_playwright(
                     )
                 except Exception as e:
                     raise RenderError(
-                        f"PDF export failed: {e}. "
-                        "PDF export requires Playwright headless Chromium."
+                        f"PDF export failed: {e}. PDF export requires Playwright headless Chromium."
                     )
             else:
                 # Screenshot the SVG element
@@ -1095,7 +1113,9 @@ def _render_with_playwright(
 # ---------------------------------------------------------------------------
 # HTML export (7.10)
 # ---------------------------------------------------------------------------
-def _export_html(data: dict, output_path: Path, dark_mode: bool = False, inline_bundle: bool = False) -> None:
+def _export_html(
+    data: dict, output_path: Path, dark_mode: bool = False, inline_bundle: bool = False
+) -> None:
     """Export diagram as self-contained interactive HTML file.
 
     (v2 2.3) When the vendor bundle is available (or --html-inline is set), inline
@@ -1172,9 +1192,7 @@ def _apply_watermark(png_path: Path) -> None:
     try:
         from PIL import Image, ImageDraw, ImageFont
     except ImportError:
-        logger.warning(
-            "Pillow not installed -- cannot add watermark. Run: uv pip install Pillow"
-        )
+        logger.warning("Pillow not installed -- cannot add watermark. Run: uv pip install Pillow")
         return
     try:
         img = Image.open(str(png_path)).convert("RGBA")
@@ -1206,11 +1224,13 @@ def _apply_watermark(png_path: Path) -> None:
 # ---------------------------------------------------------------------------
 class _JsonLineFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
-        return json.dumps({
-            "level": record.levelname,
-            "msg": record.getMessage(),
-            "logger": record.name,
-        })
+        return json.dumps(
+            {
+                "level": record.levelname,
+                "msg": record.getMessage(),
+                "logger": record.name,
+            }
+        )
 
 
 def _install_json_log_formatter() -> None:
@@ -1259,8 +1279,12 @@ _SELF_TEST_DIAGRAM = {
     "source": "self-test",
     "elements": [
         {
-            "id": "r1", "type": "rectangle",
-            "x": 100, "y": 100, "width": 120, "height": 60,
+            "id": "r1",
+            "type": "rectangle",
+            "x": 100,
+            "y": 100,
+            "width": 120,
+            "height": 60,
         }
     ],
     "appState": {"viewBackgroundColor": "#ffffff"},
@@ -1271,6 +1295,7 @@ _SELF_TEST_DIAGRAM = {
 def _run_self_test() -> bool:
     """Render a canned 1-element diagram end-to-end. Returns True on success (v2 4.8)."""
     import tempfile
+
     ok = True
     try:
         tmp_in = tempfile.NamedTemporaryFile(suffix=".excalidraw", delete=False, mode="w")
@@ -1280,12 +1305,15 @@ def _run_self_test() -> bool:
         tmp_out.close()
         try:
             render(
-                Path(tmp_in.name), Path(tmp_out.name),
-                scale=1, max_width=400,
+                Path(tmp_in.name),
+                Path(tmp_out.name),
+                scale=1,
+                max_width=400,
             )
             # Validate the output via Pillow if available.
             try:
                 from PIL import Image
+
                 with Image.open(tmp_out.name) as im:
                     if im.size[0] < 20 or im.size[1] < 20:
                         logger.error("Self-test: output image too small")
@@ -1350,6 +1378,7 @@ def _batch_render(
                     if args.theme and args.theme != "default":
                         try:
                             from themes import apply_theme
+
                             apply_theme(data, args.theme)
                         except ImportError:
                             pass
@@ -1360,7 +1389,11 @@ def _batch_render(
                     elif args.pdf:
                         out_path = inp.with_suffix(".pdf")
 
-                    active = [e for e in data.get("elements", []) if isinstance(e, dict) and not e.get("isDeleted")]
+                    active = [
+                        e
+                        for e in data.get("elements", [])
+                        if isinstance(e, dict) and not e.get("isDeleted")
+                    ]
                     if active:
                         min_x, min_y, max_x, max_y = compute_bounding_box(active)
                         padding = 80
@@ -1398,7 +1431,9 @@ def _batch_render(
                             el.screenshot(path=str(out_path))
                             if args.watermark:
                                 _apply_watermark(out_path)
-                        rendered.append({"input": str(inp), "output": str(out_path), "success": True})
+                        rendered.append(
+                            {"input": str(inp), "output": str(out_path), "success": True}
+                        )
                     finally:
                         context.close()
                 except Exception as e:
@@ -1421,7 +1456,9 @@ def _batch_render(
 def _print_stats(input_path: Path, *, json_output: bool = False) -> None:
     raw = input_path.read_text(encoding="utf-8-sig")
     data = json.loads(raw)
-    elements = [e for e in data.get("elements", []) if isinstance(e, dict) and not e.get("isDeleted")]
+    elements = [
+        e for e in data.get("elements", []) if isinstance(e, dict) and not e.get("isDeleted")
+    ]
     type_counts: dict[str, int] = {}
     colors_fill: set[str] = set()
     colors_stroke: set[str] = set()
@@ -1461,7 +1498,8 @@ def _print_stats(input_path: Path, *, json_output: bool = False) -> None:
         sizes_sorted = sorted(sizes)
         mid = len(sizes_sorted) // 2
         median = (
-            sizes_sorted[mid] if len(sizes_sorted) % 2
+            sizes_sorted[mid]
+            if len(sizes_sorted) % 2
             else (sizes_sorted[mid - 1] + sizes_sorted[mid]) / 2
         )
     stats = {
@@ -1470,7 +1508,11 @@ def _print_stats(input_path: Path, *, json_output: bool = False) -> None:
         "elements_by_type": type_counts,
         "distinct_fill_colors": len(colors_fill),
         "distinct_stroke_colors": len(colors_stroke),
-        "distinct_shape_types": sum(1 for k in type_counts if k in ("rectangle", "ellipse", "diamond", "arrow", "line", "text", "frame", "image")),
+        "distinct_shape_types": sum(
+            1
+            for k in type_counts
+            if k in ("rectangle", "ellipse", "diamond", "arrow", "line", "text", "frame", "image")
+        ),
         "text_in_container": text_in_container,
         "text_free": text_free,
         "text_in_container_pct": round(pct_text_in_container, 1),
@@ -1543,156 +1585,217 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "input", type=str, nargs="*",
+        "input",
+        type=str,
+        nargs="*",
         help="Path to .excalidraw JSON file(s), or '-' to read from stdin. "
-             "Multiple paths trigger batch mode that reuses Chromium (v2 1.5).",
+        "Multiple paths trigger batch mode that reuses Chromium (v2 1.5).",
     )
     parser.add_argument(
-        "--all", dest="all_dir", type=Path, default=None,
+        "--all",
+        dest="all_dir",
+        type=Path,
+        default=None,
         help="Batch-render every *.excalidraw file in the given directory, "
-             "reusing a single Chromium instance (v2 2.4).",
+        "reusing a single Chromium instance (v2 2.4).",
     )
     parser.add_argument(
-        "--help-examples", action="store_true",
+        "--help-examples",
+        action="store_true",
         help="Print concrete copy-paste usage recipes and exit (v2 6.8).",
     )
     parser.add_argument(
-        "--quiet", "-q", action="store_true",
+        "--quiet",
+        "-q",
+        action="store_true",
         help="Suppress INFO logging (only warnings/errors) (v2 6.10).",
     )
     parser.add_argument(
-        "--self-test", action="store_true",
+        "--self-test",
+        action="store_true",
         help="Render a minimal canned diagram end-to-end to verify the pipeline (v2 4.8).",
     )
     parser.add_argument(
-        "--theme", choices=["default", "warm", "cool", "high-contrast", "minimal"],
+        "--theme",
+        choices=["default", "warm", "cool", "high-contrast", "minimal"],
         default=None,
         help="Recolor elements using a preset palette from color-palette.md (v2 2.6).",
     )
     parser.add_argument(
-        "--pdf", action="store_true",
+        "--pdf",
+        action="store_true",
         help="Render to PDF using Chromium's built-in PDF engine (v2 2.9).",
     )
     parser.add_argument(
-        "--from-shortform", action="store_true",
+        "--from-shortform",
+        action="store_true",
         help="Treat input as shortform YAML-ish DSL; compile to Excalidraw JSON first (v2 2.10).",
     )
     parser.add_argument(
-        "--stats", action="store_true",
+        "--stats",
+        action="store_true",
         help="Print diagram metrics (element counts, color usage, etc.) (v2 2.8).",
     )
     parser.add_argument(
-        "--html-inline", action="store_true",
+        "--html-inline",
+        action="store_true",
         help="When exporting HTML, inline the vendor bundle for a self-contained file (v2 2.3).",
     )
     parser.add_argument(
-        "--socket", type=str, default=None,
+        "--socket",
+        type=str,
+        default=None,
         help="UNIX domain socket path for --server mode (v2 5.3).",
     )
     parser.add_argument(
-        "--output-root", type=Path, default=None,
+        "--output-root",
+        type=Path,
+        default=None,
         help="Restrict server mode writes to paths under this directory (v2 5.6).",
     )
     parser.add_argument(
-        "--auth-token", action="store_true",
+        "--auth-token",
+        action="store_true",
         help="Require Bearer token auth for server mode requests (v2 5.4).",
     )
     parser.add_argument(
-        "--output", "-o", type=Path, default=None,
+        "--output",
+        "-o",
+        type=Path,
+        default=None,
         help="Output file path (default: same name with .png/.svg suffix)",
     )
     parser.add_argument(
-        "--scale", "-s", type=int, default=2,
+        "--scale",
+        "-s",
+        type=int,
+        default=2,
         help="Device scale factor. scale=2 produces 2x resolution PNGs (default: 2). "
-             "Use --scale 1 for faster draft renders (1.7)",
+        "Use --scale 1 for faster draft renders (1.7)",
     )
     parser.add_argument(
-        "--width", "-w", type=int, default=1920,
+        "--width",
+        "-w",
+        type=int,
+        default=1920,
         help="Max viewport width in pixels (default: 1920). Diagrams wider than this are capped.",
     )
     parser.add_argument(
-        "--max-height", type=int, default=MAX_HEIGHT_DEFAULT,
+        "--max-height",
+        type=int,
+        default=MAX_HEIGHT_DEFAULT,
         help=f"Max viewport height in pixels (default: {MAX_HEIGHT_DEFAULT}). "
-             "Prevents memory issues with very tall diagrams (3.4).",
+        "Prevents memory issues with very tall diagrams (3.4).",
     )
     parser.add_argument(
-        "--timeout", "-t", type=int, default=30,
+        "--timeout",
+        "-t",
+        type=int,
+        default=30,
         help="Overall render timeout in seconds (default: 30). "
-             "60%% for module loading, 40%% for render (3.8).",
+        "60%% for module loading, 40%% for render (3.8).",
     )
     parser.add_argument(
-        "--svg", action="store_true",
+        "--svg",
+        action="store_true",
         help="Output SVG instead of PNG. Faster, scalable (1.5).",
     )
     parser.add_argument(
-        "--html", action="store_true",
+        "--html",
+        action="store_true",
         help="Output self-contained interactive HTML file (7.10).",
     )
     parser.add_argument(
-        "--dark", action="store_true",
+        "--dark",
+        action="store_true",
         help="Render in dark mode with dark background (2.3).",
     )
     parser.add_argument(
-        "--crop", type=str, default=None,
+        "--crop",
+        type=str,
+        default=None,
         help="Crop region as x,y,width,height (e.g., --crop 500,0,700,800) (1.6).",
     )
     parser.add_argument(
-        "--force", action="store_true",
+        "--force",
+        action="store_true",
         help="Force re-render even if cache is valid (4.6).",
     )
     parser.add_argument(
-        "--max-elements", type=int, default=DEFAULT_MAX_ELEMENTS,
+        "--max-elements",
+        type=int,
+        default=DEFAULT_MAX_ELEMENTS,
         help=f"Maximum element count (default: {DEFAULT_MAX_ELEMENTS}) (5.6).",
     )
     parser.add_argument(
-        "--json", action="store_true", dest="json_output",
+        "--json",
+        action="store_true",
+        dest="json_output",
         help="Output structured JSON result instead of plain path (4.4).",
     )
     parser.add_argument(
-        "--dry-run", action="store_true",
+        "--dry-run",
+        action="store_true",
         help="Validate only, don't launch browser (4.9).",
     )
     parser.add_argument(
-        "--open", action="store_true", dest="open_after",
+        "--open",
+        action="store_true",
+        dest="open_after",
         help="Open output file after rendering (6.1).",
     )
     parser.add_argument(
-        "--url", action="store_true",
+        "--url",
+        action="store_true",
         help="Generate a shareable excalidraw.com URL (2.9).",
     )
     parser.add_argument(
-        "--verbose", "-v", action="store_true",
+        "--verbose",
+        "-v",
+        action="store_true",
         help="Enable debug logging (4.3).",
     )
     parser.add_argument(
-        "--format", choices=list(FORMAT_PRESETS.keys()), default=None,
+        "--format",
+        choices=list(FORMAT_PRESETS.keys()),
+        default=None,
         help="Output format preset: presentation (1920x1080), blog (800x600), "
-             "thumbnail (400x300), social (1200x630) (6.9).",
+        "thumbnail (400x300), social (1200x630) (6.9).",
     )
     parser.add_argument(
-        "--watch", action="store_true",
+        "--watch",
+        action="store_true",
         help="Watch file for changes and re-render automatically (2.10).",
     )
     parser.add_argument(
-        "--diff", type=Path, nargs="?", const=Path("__auto__"), default=None,
+        "--diff",
+        type=Path,
+        nargs="?",
+        const=Path("__auto__"),
+        default=None,
         help="Generate a diff against a prior PNG. If no path is provided, "
-             "diffs against the auto-snapshot of the previous render (v2 2.2).",
+        "diffs against the auto-snapshot of the previous render (v2 2.2).",
     )
     parser.add_argument(
-        "--watermark", action="store_true",
+        "--watermark",
+        action="store_true",
         help="Add subtle attribution watermark to output (7.8).",
     )
     parser.add_argument(
-        "--check", action="store_true",
+        "--check",
+        action="store_true",
         help="Verify installation: check Python, Playwright, Chromium, template (6.5).",
     )
     parser.add_argument(
-        "--server", action="store_true",
+        "--server",
+        action="store_true",
         help="Start a persistent render server on localhost to avoid browser cold-start "
-             "overhead. POST /render with JSON body to render (1.1).",
+        "overhead. POST /render with JSON body to render (1.1).",
     )
     parser.add_argument(
-        "--port", type=int, default=DEFAULT_SERVER_PORT,
+        "--port",
+        type=int,
+        default=DEFAULT_SERVER_PORT,
         help=f"Port for --server mode (default: {DEFAULT_SERVER_PORT}) (1.1).",
     )
     args = parser.parse_args()
@@ -1766,11 +1869,14 @@ def main() -> None:
     stdin_tmp_path: Path | None = None
     if not inputs:
         if not args.input:
-            logger.error("No input file(s) specified. Pass a path, use --all DIR, or '-' for stdin.")
+            logger.error(
+                "No input file(s) specified. Pass a path, use --all DIR, or '-' for stdin."
+            )
             sys.exit(2)
         for raw_input in args.input:
             if raw_input == "-":
                 import tempfile
+
                 raw = sys.stdin.read()
                 tmp = tempfile.NamedTemporaryFile(suffix=".excalidraw", delete=False, mode="w")
                 tmp.write(raw)
@@ -1840,14 +1946,14 @@ def main() -> None:
     # (v2 2.10) Shortform DSL support.
     if args.from_shortform:
         from shortform import compile_shortform  # type: ignore
+
         new_inputs = []
         for p in inputs:
             raw = p.read_text(encoding="utf-8-sig")
             data = compile_shortform(raw)
             import tempfile
-            tmp = tempfile.NamedTemporaryFile(
-                suffix=".excalidraw", delete=False, mode="w"
-            )
+
+            tmp = tempfile.NamedTemporaryFile(suffix=".excalidraw", delete=False, mode="w")
             tmp.write(json.dumps(data))
             tmp.close()
             new_inputs.append(Path(tmp.name))
@@ -1892,7 +1998,9 @@ def main() -> None:
                     )
         else:
             results = _batch_render(
-                inputs, args, crop=crop,
+                inputs,
+                args,
+                crop=crop,
             )
             if args.json_output:
                 print(json.dumps(results, indent=2))
@@ -2042,6 +2150,7 @@ class _RenderServer(http.server.BaseHTTPRequestHandler):
         if origin and origin != "null":
             # Only allow same-origin requests
             from urllib.parse import urlparse
+
             try:
                 parsed = urlparse(origin)
                 if parsed.hostname not in ("127.0.0.1", "localhost"):
@@ -2051,7 +2160,7 @@ class _RenderServer(http.server.BaseHTTPRequestHandler):
         required_token = getattr(_RenderServer, "_auth_token", None)
         if required_token:
             auth = self.headers.get("Authorization", "")
-            if not auth.startswith("Bearer ") or auth[len("Bearer "):] != required_token:
+            if not auth.startswith("Bearer ") or auth[len("Bearer ") :] != required_token:
                 return False, "Authentication required"
         return True, ""
 
@@ -2068,10 +2177,13 @@ class _RenderServer(http.server.BaseHTTPRequestHandler):
 
         # (v2 5.5) Cap request body size.
         if length > MAX_FILE_SIZE_BYTES:
-            self._send_json(413, {
-                "success": False,
-                "error": f"Payload too large (limit {MAX_FILE_SIZE_BYTES} bytes)",
-            })
+            self._send_json(
+                413,
+                {
+                    "success": False,
+                    "error": f"Payload too large (limit {MAX_FILE_SIZE_BYTES} bytes)",
+                },
+            )
             return
 
         try:
@@ -2083,7 +2195,8 @@ class _RenderServer(http.server.BaseHTTPRequestHandler):
         excalidraw_data = body.get("data")
         output_path_str = body.get("output")
         svg_output = body.get("svg", False)
-        scale = body.get("scale", 2)
+        # scale reserved for future per-request override.
+        _ = body.get("scale", 2)
         # (v2 3.4) Per-request timeout override, clamped to [1, 120].
         req_timeout = body.get("timeout", 15)
         try:
@@ -2093,10 +2206,13 @@ class _RenderServer(http.server.BaseHTTPRequestHandler):
         timeout_ms = req_timeout * 1000
 
         if not excalidraw_data or not output_path_str:
-            self._send_json(400, {
-                "success": False,
-                "error": "Missing 'data' or 'output' in request body",
-            })
+            self._send_json(
+                400,
+                {
+                    "success": False,
+                    "error": "Missing 'data' or 'output' in request body",
+                },
+            )
             return
 
         output_path = Path(output_path_str)
@@ -2108,10 +2224,13 @@ class _RenderServer(http.server.BaseHTTPRequestHandler):
                 resolved = output_path.resolve()
                 root_resolved = Path(output_root).resolve()
                 if not str(resolved).startswith(str(root_resolved)):
-                    self._send_json(403, {
-                        "success": False,
-                        "error": f"Output path outside sandbox ({root_resolved})",
-                    })
+                    self._send_json(
+                        403,
+                        {
+                            "success": False,
+                            "error": f"Output path outside sandbox ({root_resolved})",
+                        },
+                    )
                     return
             except OSError as e:
                 self._send_json(400, {"success": False, "error": f"Bad output path: {e}"})
@@ -2127,7 +2246,11 @@ class _RenderServer(http.server.BaseHTTPRequestHandler):
                 raise RenderError("Server page not initialized")
 
             # (v2 1.1) Resize viewport per request from element bounding box.
-            active = [e for e in excalidraw_data.get("elements", []) if isinstance(e, dict) and not e.get("isDeleted")]
+            active = [
+                e
+                for e in excalidraw_data.get("elements", [])
+                if isinstance(e, dict) and not e.get("isDeleted")
+            ]
             if active:
                 min_x, min_y, max_x, max_y = compute_bounding_box(active)
                 padding = 80
@@ -2246,6 +2369,7 @@ def start_server(
     # (v2 5.4) Generate auth token if requested, write to cache dir with 0o600.
     if require_auth:
         import secrets
+
         token = secrets.token_hex(32)
         _RenderServer._auth_token = token
         cache_dir = Path.home() / ".cache" / "excalidraw-diagram-skill"
@@ -2267,6 +2391,7 @@ def start_server(
             server = http.server.HTTPServer(("127.0.0.1", port), _RenderServer)
         else:
             import socket as _socket
+
             if Path(socket_path).exists():
                 Path(socket_path).unlink()
 
@@ -2292,6 +2417,7 @@ def start_server(
 
     def _shutdown_handler(_signum, _frame):  # pragma: no cover (signal path)
         threading.Thread(target=server.shutdown).start()
+
     try:
         _signal.signal(_signal.SIGTERM, _shutdown_handler)
     except (AttributeError, ValueError):
@@ -2324,11 +2450,14 @@ def _verify_setup() -> None:
     # Check Python version
     py_version = sys.version_info
     ok = py_version >= (3, 11)
-    checks.append(("Python >= 3.11", ok, f"{py_version.major}.{py_version.minor}.{py_version.micro}"))
+    checks.append(
+        ("Python >= 3.11", ok, f"{py_version.major}.{py_version.minor}.{py_version.micro}")
+    )
 
     # Check Playwright import
     try:
         import playwright  # noqa: F401
+
         checks.append(("Playwright installed", True, "OK"))
     except ImportError:
         checks.append(("Playwright installed", False, "Run: uv sync"))
@@ -2341,6 +2470,7 @@ def _verify_setup() -> None:
     system = platform.system()
     try:
         from playwright.sync_api import sync_playwright
+
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             browser.close()
@@ -2366,10 +2496,13 @@ def _verify_setup() -> None:
         try:
             integrity = json.loads((VENDOR_DIR / "integrity.json").read_text(encoding="utf-8"))
             if integrity.get("version") != EXCALIDRAW_VERSION:
-                checks.append((
-                    "Vendor bundle version", False,
-                    f"bundle={integrity.get('version')} code={EXCALIDRAW_VERSION} -- rerun vendor_excalidraw.py",
-                ))
+                checks.append(
+                    (
+                        "Vendor bundle version",
+                        False,
+                        f"bundle={integrity.get('version')} code={EXCALIDRAW_VERSION} -- rerun vendor_excalidraw.py",
+                    )
+                )
             else:
                 checks.append(("Vendor bundle version", True, integrity.get("version")))
         except (OSError, json.JSONDecodeError):

@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import json
-import os
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -68,6 +65,7 @@ class TestHtmlExport:
         bundle = vendor_dir / "excalidraw-bundle.js"
         bundle.write_text("export const exportToSvg = () => {};", encoding="utf-8")
         import hashlib
+
         integrity = {
             "version": rx.EXCALIDRAW_VERSION,
             "method": "test",
@@ -91,7 +89,9 @@ class TestAllFlagArgument:
     def test_all_collects_excalidraw_files(self, tmp_path):
         (tmp_path / "x.excalidraw").write_text(json.dumps(_make_diagram()), encoding="utf-8")
         (tmp_path / "sub").mkdir()
-        (tmp_path / "sub" / "y.excalidraw").write_text(json.dumps(_make_diagram()), encoding="utf-8")
+        (tmp_path / "sub" / "y.excalidraw").write_text(
+            json.dumps(_make_diagram()), encoding="utf-8"
+        )
         found = sorted(tmp_path.rglob("*.excalidraw"))
         assert len(found) == 2
 
@@ -99,27 +99,56 @@ class TestAllFlagArgument:
 # --- v2 2.5: frames lint ------------------------------------------------------
 class TestFrameLint:
     def test_frame_overlap(self):
-        data = _make_diagram([
-            {"id": "f1", "type": "frame", "x": 0, "y": 0, "width": 200, "height": 200},
-            {"id": "f2", "type": "frame", "x": 100, "y": 100, "width": 200, "height": 200},
-        ])
+        data = _make_diagram(
+            [
+                {"id": "f1", "type": "frame", "x": 0, "y": 0, "width": 200, "height": 200},
+                {"id": "f2", "type": "frame", "x": 100, "y": 100, "width": 200, "height": 200},
+            ]
+        )
         issues = lx.lint_excalidraw(data)
         assert any(i["code"] == "frame-overlap" for i in issues)
 
     def test_frame_child_out_of_bounds(self):
-        data = _make_diagram([
-            {"id": "f1", "type": "frame", "x": 0, "y": 0, "width": 100, "height": 100,
-             "boundElements": [{"id": "r1", "type": "rectangle"}]},
-            {"id": "r1", "type": "rectangle", "x": 150, "y": 150, "width": 40, "height": 40, "frameId": "f1"},
-        ])
+        data = _make_diagram(
+            [
+                {
+                    "id": "f1",
+                    "type": "frame",
+                    "x": 0,
+                    "y": 0,
+                    "width": 100,
+                    "height": 100,
+                    "boundElements": [{"id": "r1", "type": "rectangle"}],
+                },
+                {
+                    "id": "r1",
+                    "type": "rectangle",
+                    "x": 150,
+                    "y": 150,
+                    "width": 40,
+                    "height": 40,
+                    "frameId": "f1",
+                },
+            ]
+        )
         issues = lx.lint_excalidraw(data)
         assert any(i["code"] == "frame-child-out-of-bounds" for i in issues)
 
     def test_frame_label_overflow(self):
         long = "X" * 100
-        data = _make_diagram([
-            {"id": "f1", "type": "frame", "x": 0, "y": 0, "width": 80, "height": 80, "name": long},
-        ])
+        data = _make_diagram(
+            [
+                {
+                    "id": "f1",
+                    "type": "frame",
+                    "x": 0,
+                    "y": 0,
+                    "width": 80,
+                    "height": 80,
+                    "name": long,
+                },
+            ]
+        )
         issues = lx.lint_excalidraw(data)
         assert any(i["code"] == "frame-label-overflow" for i in issues)
 
@@ -128,11 +157,20 @@ class TestFrameLint:
 class TestThemes:
     @pytest.mark.parametrize("theme", sorted(k for k in themes.PALETTES.keys() if k != "default"))
     def test_apply_theme_remaps_colors(self, theme):
-        data = _make_diagram([{
-            "id": "a", "type": "rectangle", "x": 0, "y": 0, "width": 100, "height": 100,
-            "strokeColor": "#1971c2",  # accent stroke in default palette
-            "backgroundColor": "#a5d8ff",  # accent fill
-        }])
+        data = _make_diagram(
+            [
+                {
+                    "id": "a",
+                    "type": "rectangle",
+                    "x": 0,
+                    "y": 0,
+                    "width": 100,
+                    "height": 100,
+                    "strokeColor": "#1971c2",  # accent stroke in default palette
+                    "backgroundColor": "#a5d8ff",  # accent fill
+                }
+            ]
+        )
         themes.apply_theme(data, theme)
         expected_stroke = themes.PALETTES[theme]["accent"][0]
         expected_fill = themes.PALETTES[theme]["accent"][1]
@@ -145,9 +183,20 @@ class TestThemes:
             themes.apply_theme(_make_diagram(), "nope")
 
     def test_default_noop(self):
-        d = _make_diagram([{"id": "a", "type": "rectangle", "x": 0, "y": 0,
-                            "width": 10, "height": 10,
-                            "strokeColor": "#1e1e1e", "backgroundColor": "#ffffff"}])
+        d = _make_diagram(
+            [
+                {
+                    "id": "a",
+                    "type": "rectangle",
+                    "x": 0,
+                    "y": 0,
+                    "width": 10,
+                    "height": 10,
+                    "strokeColor": "#1e1e1e",
+                    "backgroundColor": "#ffffff",
+                }
+            ]
+        )
         themes.apply_theme(d, "default")
         assert d["elements"][0]["strokeColor"] == "#1e1e1e"
 
@@ -193,10 +242,33 @@ class TestMermaidConverter:
 class TestStats:
     def test_print_stats_json(self, tmp_path, capsys):
         p = tmp_path / "d.excalidraw"
-        p.write_text(json.dumps(_make_diagram([
-            {"id": "a", "type": "rectangle", "x": 0, "y": 0, "width": 100, "height": 100, "strokeColor": "#ff0000"},
-            {"id": "b", "type": "ellipse", "x": 200, "y": 0, "width": 50, "height": 50, "strokeColor": "#00ff00"},
-        ])), encoding="utf-8")
+        p.write_text(
+            json.dumps(
+                _make_diagram(
+                    [
+                        {
+                            "id": "a",
+                            "type": "rectangle",
+                            "x": 0,
+                            "y": 0,
+                            "width": 100,
+                            "height": 100,
+                            "strokeColor": "#ff0000",
+                        },
+                        {
+                            "id": "b",
+                            "type": "ellipse",
+                            "x": 200,
+                            "y": 0,
+                            "width": 50,
+                            "height": 50,
+                            "strokeColor": "#00ff00",
+                        },
+                    ]
+                )
+            ),
+            encoding="utf-8",
+        )
         rx._print_stats(p, json_output=True)
         captured = capsys.readouterr()
         data = json.loads(captured.out)
@@ -205,9 +277,16 @@ class TestStats:
 
     def test_print_stats_human(self, tmp_path, capsys):
         p = tmp_path / "d.excalidraw"
-        p.write_text(json.dumps(_make_diagram([
-            {"id": "a", "type": "rectangle", "x": 0, "y": 0, "width": 50, "height": 50},
-        ])), encoding="utf-8")
+        p.write_text(
+            json.dumps(
+                _make_diagram(
+                    [
+                        {"id": "a", "type": "rectangle", "x": 0, "y": 0, "width": 50, "height": 50},
+                    ]
+                )
+            ),
+            encoding="utf-8",
+        )
         rx._print_stats(p, json_output=False)
         out = capsys.readouterr().out
         assert "elements_total" in out
@@ -219,10 +298,12 @@ class TestPdfArgument:
         # --pdf is defined on the parser (integration-test renders it; here we
         # confirm the flag is wired up by running --help).
         from subprocess import run
+
         r = run(
             [sys.executable, "render_excalidraw.py", "--help"],
             cwd=str(Path(__file__).parent.parent),
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         assert "--pdf" in r.stdout
 
@@ -238,11 +319,11 @@ class TestShortform:
         assert texts[0]["text"] == "Hi"
 
     def test_ellipse(self):
-        data = shortform.compile_shortform('shape: ellipse id: b at: [10, 10] size: [60, 60]')
+        data = shortform.compile_shortform("shape: ellipse id: b at: [10, 10] size: [60, 60]")
         assert any(e["type"] == "ellipse" for e in data["elements"])
 
     def test_diamond(self):
-        data = shortform.compile_shortform('shape: diamond id: c at: [0, 0] size: [80, 80]')
+        data = shortform.compile_shortform("shape: diamond id: c at: [0, 0] size: [80, 80]")
         assert any(e["type"] == "diamond" for e in data["elements"])
 
     def test_arrow_binding(self):
@@ -267,7 +348,9 @@ class TestShortform:
         assert texts and texts[0]["text"] == "Hello"
 
     def test_role_applied(self):
-        data = shortform.compile_shortform('shape: rect id: a role: danger at: [0, 0] size: [50, 50]')
+        data = shortform.compile_shortform(
+            "shape: rect id: a role: danger at: [0, 0] size: [50, 50]"
+        )
         danger = themes.PALETTES["default"]["danger"]
         el = [e for e in data["elements"] if e["type"] == "rectangle"][0]
         assert el["strokeColor"] == danger[0]

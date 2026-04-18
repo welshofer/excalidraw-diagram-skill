@@ -15,8 +15,7 @@ import json
 import re
 import sys
 import uuid
-from collections import defaultdict, deque
-from pathlib import Path
+from collections import defaultdict
 
 from themes import PALETTES
 
@@ -119,36 +118,66 @@ def compile_mermaid(text: str) -> dict:
     for node_id, (x, y) in positions.items():
         rid = _uid()
         tid = _uid()
-        elements.append({
-            "id": rid,
-            "type": "rectangle",
-            "x": x, "y": y, "width": node_w, "height": node_h,
-            "strokeColor": stroke, "backgroundColor": fill,
-            "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
-            "roughness": 1, "opacity": 100, "seed": 1, "version": 1,
-            "versionNonce": 1, "isDeleted": False,
-            "boundElements": [{"id": tid, "type": "text"}],
-            "updated": 1, "link": None, "locked": False,
-            "_mermaid_id": node_id,
-        })
-        elements.append({
-            "id": tid,
-            "type": "text",
-            "x": x + 8, "y": y + node_h / 2 - 10,
-            "width": max(40, node_w - 16), "height": 20,
-            "strokeColor": stroke, "backgroundColor": "transparent",
-            "fillStyle": "solid", "strokeWidth": 1, "strokeStyle": "solid",
-            "roughness": 1, "opacity": 100, "seed": 2, "version": 1,
-            "versionNonce": 2, "isDeleted": False,
-            "boundElements": None,
-            "updated": 1, "link": None, "locked": False,
-            "text": labels.get(node_id, node_id),
-            "fontSize": 16, "fontFamily": 1,
-            "textAlign": "center", "verticalAlign": "middle",
-            "containerId": rid,
-            "originalText": labels.get(node_id, node_id),
-            "lineHeight": 1.25, "baseline": 14,
-        })
+        elements.append(
+            {
+                "id": rid,
+                "type": "rectangle",
+                "x": x,
+                "y": y,
+                "width": node_w,
+                "height": node_h,
+                "strokeColor": stroke,
+                "backgroundColor": fill,
+                "fillStyle": "solid",
+                "strokeWidth": 2,
+                "strokeStyle": "solid",
+                "roughness": 1,
+                "opacity": 100,
+                "seed": 1,
+                "version": 1,
+                "versionNonce": 1,
+                "isDeleted": False,
+                "boundElements": [{"id": tid, "type": "text"}],
+                "updated": 1,
+                "link": None,
+                "locked": False,
+                "_mermaid_id": node_id,
+            }
+        )
+        elements.append(
+            {
+                "id": tid,
+                "type": "text",
+                "x": x + 8,
+                "y": y + node_h / 2 - 10,
+                "width": max(40, node_w - 16),
+                "height": 20,
+                "strokeColor": stroke,
+                "backgroundColor": "transparent",
+                "fillStyle": "solid",
+                "strokeWidth": 1,
+                "strokeStyle": "solid",
+                "roughness": 1,
+                "opacity": 100,
+                "seed": 2,
+                "version": 1,
+                "versionNonce": 2,
+                "isDeleted": False,
+                "boundElements": None,
+                "updated": 1,
+                "link": None,
+                "locked": False,
+                "text": labels.get(node_id, node_id),
+                "fontSize": 16,
+                "fontFamily": 1,
+                "textAlign": "center",
+                "verticalAlign": "middle",
+                "containerId": rid,
+                "originalText": labels.get(node_id, node_id),
+                "lineHeight": 1.25,
+                "baseline": 14,
+            }
+        )
     # Build a node_id -> rectangle element id map.
     node_rect: dict[str, str] = {}
     for el in elements:
@@ -162,23 +191,39 @@ def compile_mermaid(text: str) -> dict:
             continue
         sx, sy = positions[src]
         tx, ty = positions[dst]
-        elements.append({
-            "id": _uid(),
-            "type": "arrow",
-            "x": sx + node_w,
-            "y": sy + node_h / 2,
-            "width": max(1, tx - (sx + node_w)),
-            "height": (ty + node_h / 2) - (sy + node_h / 2),
-            "strokeColor": "#1e1e1e", "backgroundColor": "transparent",
-            "fillStyle": "solid", "strokeWidth": 2, "strokeStyle": "solid",
-            "roughness": 1, "opacity": 100, "seed": 3, "version": 1,
-            "versionNonce": 3, "isDeleted": False,
-            "boundElements": None, "updated": 1, "link": None, "locked": False,
-            "points": [[0, 0], [max(1, tx - (sx + node_w)), (ty + node_h / 2) - (sy + node_h / 2)]],
-            "startBinding": {"elementId": rid, "focus": 0, "gap": 1},
-            "endBinding": {"elementId": did, "focus": 0, "gap": 1},
-            "startArrowhead": None, "endArrowhead": "arrow",
-        })
+        elements.append(
+            {
+                "id": _uid(),
+                "type": "arrow",
+                "x": sx + node_w,
+                "y": sy + node_h / 2,
+                "width": max(1, tx - (sx + node_w)),
+                "height": (ty + node_h / 2) - (sy + node_h / 2),
+                "strokeColor": "#1e1e1e",
+                "backgroundColor": "transparent",
+                "fillStyle": "solid",
+                "strokeWidth": 2,
+                "strokeStyle": "solid",
+                "roughness": 1,
+                "opacity": 100,
+                "seed": 3,
+                "version": 1,
+                "versionNonce": 3,
+                "isDeleted": False,
+                "boundElements": None,
+                "updated": 1,
+                "link": None,
+                "locked": False,
+                "points": [
+                    [0, 0],
+                    [max(1, tx - (sx + node_w)), (ty + node_h / 2) - (sy + node_h / 2)],
+                ],
+                "startBinding": {"elementId": rid, "focus": 0, "gap": 1},
+                "endBinding": {"elementId": did, "focus": 0, "gap": 1},
+                "startArrowhead": None,
+                "endArrowhead": "arrow",
+            }
+        )
 
     # Strip helper key.
     for el in elements:

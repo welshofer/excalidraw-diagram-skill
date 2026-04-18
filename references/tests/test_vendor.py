@@ -9,7 +9,6 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -17,7 +16,6 @@ from render_excalidraw import (
     _vendor_bundle_available,
     _get_vendor_sri,
     _resolve_template_html,
-    VENDOR_DIR,
 )
 from vendor_excalidraw import verify_bundle
 

@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import sys
 import time
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -20,14 +19,16 @@ import lint_excalidraw as lx
 def _make_diagram(n: int) -> dict:
     elements = []
     for i in range(n):
-        elements.append({
-            "id": f"e{i}",
-            "type": "rectangle",
-            "x": (i % 50) * 200,
-            "y": (i // 50) * 120,
-            "width": 160,
-            "height": 80,
-        })
+        elements.append(
+            {
+                "id": f"e{i}",
+                "type": "rectangle",
+                "x": (i % 50) * 200,
+                "y": (i // 50) * 120,
+                "width": 160,
+                "height": 80,
+            }
+        )
     return {"type": "excalidraw", "version": 2, "elements": elements, "appState": {}, "files": {}}
 
 
@@ -108,22 +109,18 @@ class TestLintOverlapPerf:
 class TestBatchArgs:
     def test_input_nargs_accepts_multiple(self):
         # argparse should accept any number of positional inputs.
-        from argparse import ArgumentParser
 
         # Just validate the argparse config doesn't reject multiple inputs.
         import render_excalidraw as r
+
         # Re-invoke main via a subprocess-style check is heavy; instead rebuild parser.
         # We inspect the module's argparse setup indirectly by checking _batch_render.
         assert callable(r._batch_render)
 
     def test_all_dir_collects(self, tmp_path):
         # Create two fake files.
-        (tmp_path / "a.excalidraw").write_text(
-            json.dumps(_make_diagram(1)), encoding="utf-8"
-        )
-        (tmp_path / "b.excalidraw").write_text(
-            json.dumps(_make_diagram(1)), encoding="utf-8"
-        )
+        (tmp_path / "a.excalidraw").write_text(json.dumps(_make_diagram(1)), encoding="utf-8")
+        (tmp_path / "b.excalidraw").write_text(json.dumps(_make_diagram(1)), encoding="utf-8")
         found = sorted(tmp_path.rglob("*.excalidraw"))
         assert len(found) == 2
 

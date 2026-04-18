@@ -30,13 +30,21 @@ from render_excalidraw import (
 def _validate_one(input_path: Path, *, json_output: bool, verbose: bool) -> tuple[bool, dict]:
     """Validate a single file. Returns (ok, result_dict)."""
     if not input_path.exists():
-        return False, {"valid": False, "errors": [f"File not found: {input_path}"], "file": str(input_path)}
+        return False, {
+            "valid": False,
+            "errors": [f"File not found: {input_path}"],
+            "file": str(input_path),
+        }
 
     # (v2 3.10) utf-8-sig tolerates BOM-prefixed files.
     try:
         raw = input_path.read_text(encoding="utf-8-sig")
     except OSError as e:
-        return False, {"valid": False, "errors": [f"Cannot read {input_path}: {e}"], "file": str(input_path)}
+        return False, {
+            "valid": False,
+            "errors": [f"Cannot read {input_path}: {e}"],
+            "file": str(input_path),
+        }
 
     try:
         data = json.loads(raw)
@@ -54,8 +62,10 @@ def _validate_one(input_path: Path, *, json_output: bool, verbose: bool) -> tupl
         "active_elements": len(active),
         "file": str(input_path),
         "bounding_box": {
-            "min_x": bbox[0], "min_y": bbox[1],
-            "max_x": bbox[2], "max_y": bbox[3],
+            "min_x": bbox[0],
+            "min_y": bbox[1],
+            "max_x": bbox[2],
+            "max_y": bbox[3],
         },
     }
     return len(errors) == 0, result
@@ -81,20 +91,29 @@ def main() -> None:
         if len(results) == 1:
             print(json.dumps(results[0], indent=2))
         else:
-            print(json.dumps({
-                "valid": all_ok,
-                "count": len(results),
-                "results": results,
-            }, indent=2))
+            print(
+                json.dumps(
+                    {
+                        "valid": all_ok,
+                        "count": len(results),
+                        "results": results,
+                    },
+                    indent=2,
+                )
+            )
     else:
         for result in results:
             if result["valid"]:
                 path = result["file"]
-                print(f"Valid Excalidraw file ({Path(path).name}): {result['active_elements']} active elements")
+                print(
+                    f"Valid Excalidraw file ({Path(path).name}): {result['active_elements']} active elements"
+                )
                 if args.verbose:
                     bbox = result["bounding_box"]
-                    print(f"  Bounding box: ({bbox['min_x']:.0f}, {bbox['min_y']:.0f}) - "
-                          f"({bbox['max_x']:.0f}, {bbox['max_y']:.0f})")
+                    print(
+                        f"  Bounding box: ({bbox['min_x']:.0f}, {bbox['min_y']:.0f}) - "
+                        f"({bbox['max_x']:.0f}, {bbox['max_y']:.0f})"
+                    )
                     w = bbox["max_x"] - bbox["min_x"]
                     h = bbox["max_y"] - bbox["min_y"]
                     print(f"  Diagram size: {w:.0f} x {h:.0f}")

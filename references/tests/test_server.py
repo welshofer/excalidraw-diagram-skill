@@ -2,20 +2,16 @@
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from render_excalidraw import (
     _RenderServer,
     DEFAULT_SERVER_PORT,
-    start_server,
-    RenderError,
 )
 
 
@@ -56,8 +52,6 @@ class TestServerCLI:
 
     def test_server_arg_in_parser(self):
         """The --server flag should be recognized."""
-        from render_excalidraw import main
-        import argparse
         # We don't run main, just verify the arg exists by checking
         # that it doesn't raise on parse
         # This is tested indirectly - the fact that the module imports

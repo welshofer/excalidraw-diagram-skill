@@ -7,7 +7,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -30,11 +30,27 @@ def _diag(elements):
 # --- v2 3.1: auto_fix text re-centering math ----------------------------------
 class TestAutoFixMath:
     def test_recenter_text_on_widen(self):
-        rect = {"id": "rect", "type": "diamond", "x": 0, "y": 0, "width": 100, "height": 100,
-                "boundElements": [{"id": "t", "type": "text"}]}
-        text = {"id": "t", "type": "text", "x": 10, "y": 40, "width": 80, "height": 20,
-                "containerId": "rect", "text": "Hello long text",
-                "fontSize": 16, "fontFamily": 3}
+        rect = {
+            "id": "rect",
+            "type": "diamond",
+            "x": 0,
+            "y": 0,
+            "width": 100,
+            "height": 100,
+            "boundElements": [{"id": "t", "type": "text"}],
+        }
+        text = {
+            "id": "t",
+            "type": "text",
+            "x": 10,
+            "y": 40,
+            "width": 80,
+            "height": 20,
+            "containerId": "rect",
+            "text": "Hello long text",
+            "fontSize": 16,
+            "fontFamily": 3,
+        }
         data = _diag([rect, text])
         issues = lx.lint_excalidraw(data)
         # Trigger auto-fix on overflow issue.
@@ -101,10 +117,12 @@ class TestServerRequestReset:
         rx._RenderServer._auth_token = None
 
         # Craft fake request
-        body = json.dumps({
-            "data": _diag([_rect()]),
-            "output": "/tmp/test_handle_render.png",
-        }).encode()
+        body = json.dumps(
+            {
+                "data": _diag([_rect()]),
+                "output": "/tmp/test_handle_render.png",
+            }
+        ).encode()
         fake_stdin = BytesIO(body)
 
         class FakeRFile:
@@ -114,6 +132,7 @@ class TestServerRequestReset:
         class FakeWFile:
             def __init__(self):
                 self.buf = BytesIO()
+
             def write(self, b):
                 self.buf.write(b)
 
@@ -148,8 +167,10 @@ class TestServerTimeoutOverride:
 class TestLargeDiagram:
     def test_validate_large_doesnt_explode(self):
         # Pure-python; no browser.
-        elements = [{"id": f"x{i}", "type": "rectangle", "x": i, "y": 0, "width": 10, "height": 10}
-                    for i in range(5000)]
+        elements = [
+            {"id": f"x{i}", "type": "rectangle", "x": i, "y": 0, "width": 10, "height": 10}
+            for i in range(5000)
+        ]
         errors = rx.validate_excalidraw(_diag(elements), max_elements=10000)
         assert errors == []
 
@@ -171,9 +192,11 @@ class TestBrowserLiveness:
         class _DeadBrowser:
             def __init__(self):
                 self.closed = False
+
             @property
             def version(self):
                 raise RuntimeError("Browser dead on arrival")
+
             def close(self):
                 self.closed = True
 
@@ -188,15 +211,26 @@ class TestBrowserLiveness:
         class _CM:
             def __enter__(self_inner):
                 return _P()
+
             def __exit__(self_inner, *a):
                 return False
 
-        fake_sp = lambda: _CM()
+        def fake_sp():
+            return _CM()
 
         with pytest.raises(rx.RenderError, match="Chromium failed to start"):
             rx._render_with_playwright(
-                fake_sp, "<html></html>", _diag([_rect()]),
-                Path("/tmp/unused.png"), 100, 100, 1, 1000, 1000, False, None,
+                fake_sp,
+                "<html></html>",
+                _diag([_rect()]),
+                Path("/tmp/unused.png"),
+                100,
+                100,
+                1,
+                1000,
+                1000,
+                False,
+                None,
             )
 
 
@@ -238,9 +272,11 @@ class TestBOMTolerance:
         p = tmp_path / "bom.excalidraw"
         p.write_text("\ufeff" + json.dumps(_diag([_rect()])), encoding="utf-8")
         import subprocess
+
         r = subprocess.run(
             [sys.executable, "lint_excalidraw.py", str(p)],
             cwd=str(Path(__file__).parent.parent),
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
         )
         assert r.returncode == 0, r.stderr
