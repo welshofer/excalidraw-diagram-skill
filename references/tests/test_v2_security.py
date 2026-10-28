@@ -62,21 +62,47 @@ class TestSocketFlag:
 
 
 # --- v2 5.4: auth token -----------------------------------------------------
+def _post(path, headers, body=b"{}"):
+    """Run do_POST on a bare handler and return the status code it sent."""
+    handler = rx._RenderServer.__new__(rx._RenderServer)
+    status = {"code": None}
+    handler.path = path
+    handler.rfile = io.BytesIO(body)
+    handler.wfile = io.BytesIO()
+    handler.headers = {"Content-Length": str(len(body)), "Host": "127.0.0.1", **headers}
+    handler.send_response = lambda code: status.__setitem__("code", code)
+    handler.send_header = lambda *a: None
+    handler.end_headers = lambda: None
+    handler.send_error = lambda code, *a: status.__setitem__("code", code)
+    handler._handle_shutdown = lambda: status.__setitem__("code", 200)
+    handler.do_POST()
+    return status["code"]
+
+
+JSON = {"Content-Type": "application/json"}
+
+
 class TestAuthToken:
     def test_missing_token_rejected(self):
-        handler = rx._RenderServer.__new__(rx._RenderServer)
         rx._RenderServer._auth_token = "secret-token"
         rx._RenderServer._output_root = None
-        status = {"code": None}
-        handler.rfile = io.BytesIO(b"{}")
-        handler.wfile = io.BytesIO()
-        handler.headers = {"Content-Length": "2", "Host": "127.0.0.1"}
-        handler.send_response = lambda code: status.__setitem__("code", code)
-        handler.send_header = lambda *a: None
-        handler.end_headers = lambda: None
-        handler._handle_render()
-        assert status["code"] == 403
-        rx._RenderServer._auth_token = None
+        try:
+            assert _post("/render", JSON) == 403
+        finally:
+            rx._RenderServer._auth_token = None
+
+    def test_shutdown_needs_token(self):
+        rx._RenderServer._auth_token = "secret-token"
+        try:
+            assert _post("/shutdown", JSON) == 403
+            assert _post("/shutdown", {**JSON, "Authorization": "Bearer secret-token"}) == 200
+        finally:
+            rx._RenderServer._auth_token = None
+
+    def test_auth_is_on_by_default(self):
+        import inspect
+
+        assert inspect.signature(rx.start_server).parameters["require_auth"].default is True
 
     def test_valid_token_accepted(self):
         # Auth check alone; render path will still fail with no page.
@@ -87,10 +113,38 @@ class TestAuthToken:
             "Authorization": "Bearer tok",
             "Host": "127.0.0.1",
             "Content-Length": "0",
+            "Content-Type": "application/json",
         }
         ok, reason = handler._check_security()
         assert ok, reason
         rx._RenderServer._auth_token = None
+
+
+# --- Browser requests are refused ------------------------------------------
+class TestBrowserRequestsRefused:
+    def setup_method(self):
+        rx._RenderServer._auth_token = None
+        rx._RenderServer._output_root = None
+
+    def test_null_origin_rejected(self):
+        # A sandboxed iframe sends Origin: null.
+        assert _post("/render", {**JSON, "Origin": "null"}) == 403
+
+    def test_localhost_origin_rejected(self):
+        # Another local dev server's page is still a web page.
+        assert _post("/render", {**JSON, "Origin": "http://localhost:3000"}) == 403
+
+    def test_simple_request_content_type_rejected(self):
+        # text/plain is a CORS "simple" request that skips the preflight.
+        assert _post("/render", {"Content-Type": "text/plain"}) == 403
+        assert _post("/render", {}) == 403
+        assert _post("/shutdown", {"Content-Type": "text/plain"}) == 403
+
+    def test_json_with_charset_allowed(self):
+        handler = rx._RenderServer.__new__(rx._RenderServer)
+        handler.headers = {"Host": "127.0.0.1", "Content-Type": "application/json; charset=utf-8"}
+        ok, reason = handler._check_security()
+        assert ok, reason
 
 
 # --- v2 5.5: body size cap --------------------------------------------------
@@ -127,6 +181,32 @@ class TestOutputRootSandbox:
                 "output": "/etc/out.png",
             }
         ).encode()
+        handler.rfile = io.BytesIO(body)
+        handler.wfile = io.BytesIO()
+        handler.headers = {"Content-Length": str(len(body)), "Host": "127.0.0.1"}
+        handler.send_response = lambda code: status.__setitem__("code", code)
+        handler.send_header = lambda *a: None
+        handler.end_headers = lambda: None
+        handler._handle_render()
+        assert status["code"] == 403
+        rx._RenderServer._output_root = None
+
+    def test_sibling_with_root_as_prefix_rejected(self, tmp_path):
+        # /x/sandbox-evil starts with the string /x/sandbox but isn't inside it.
+        root = tmp_path / "sandbox"
+        root.mkdir()
+        rx._RenderServer._auth_token = None
+        rx._RenderServer._output_root = root
+        status = {"code": None}
+        body = json.dumps(
+            {
+                "data": _diag(
+                    [{"id": "r1", "type": "rectangle", "x": 0, "y": 0, "width": 10, "height": 10}]
+                ),
+                "output": str(tmp_path / "sandbox-evil" / "out.png"),
+            }
+        ).encode()
+        handler = rx._RenderServer.__new__(rx._RenderServer)
         handler.rfile = io.BytesIO(body)
         handler.wfile = io.BytesIO()
         handler.headers = {"Content-Length": str(len(body)), "Host": "127.0.0.1"}

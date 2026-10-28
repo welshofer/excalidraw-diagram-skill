@@ -96,6 +96,9 @@ uv run python render_excalidraw.py --server
 # Server listens on http://127.0.0.1:9120
 # POST /render with JSON body to render diagrams
 # POST /shutdown to stop
+# Every POST needs Content-Type: application/json and
+#   Authorization: Bearer $(cat ~/.cache/excalidraw-diagram-skill/token)
+# Output paths must be under the directory the server started in (--output-root to change)
 ```
 
 ### Offline Mode (Vendor Bundle)
