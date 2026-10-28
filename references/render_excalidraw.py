@@ -393,7 +393,8 @@ def validate_path(path: Path, kind: str = "input") -> list[str]:
     raw_str = str(path)
     try:
         resolved_str = str(path.resolve())
-    except OSError as e:
+    except (OSError, RuntimeError) as e:
+        # Python < 3.13 raises RuntimeError for a symlink loop.
         errors.append(
             f"Could not resolve path {raw_str!r}: {e}. "
             "Fix: Ensure the path does not contain a symlink cycle."
@@ -2314,7 +2315,8 @@ class _RenderServer(http.server.BaseHTTPRequestHandler):
                         },
                     )
                     return
-            except OSError as e:
+            except (OSError, RuntimeError) as e:
+                # Python < 3.13 raises RuntimeError for a symlink loop.
                 self._send_json(400, {"success": False, "error": f"Bad output path: {e}"})
                 return
 
