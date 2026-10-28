@@ -769,24 +769,30 @@ sketch -> render -> tweak -> re-render loop), start a persistent server
 once to amortize the ~3 second Chromium cold-start:
 
 ```bash
-# Start in background (leave open for the session).
+# Start in background (leave open for the session), from the directory
+# the diagrams should be written to.
 uv run python render_excalidraw.py --server &
+TOKEN=$(cat ~/.cache/excalidraw-diagram-skill/token)
 
 # Each render is now an HTTP POST instead of a fresh browser launch.
 curl -X POST http://127.0.0.1:9120/render \
+  -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{
     "data": <paste full .excalidraw JSON here>,
-    "output": "/absolute/path/to/diagram.png"
+    "output": "diagram.png"
   }'
 
 # Optional: GET http://127.0.0.1:9120/health
-# Stop:    POST http://127.0.0.1:9120/shutdown
+# Stop:    POST http://127.0.0.1:9120/shutdown with the same two headers
 ```
 
-`--server --auth-token` generates a Bearer token stored at
-`~/.cache/excalidraw-diagram-skill/token` (mode 0o600); pass it back as
-`Authorization: Bearer <token>`.
+The server writes a fresh Bearer token to
+`~/.cache/excalidraw-diagram-skill/token` (mode 0o600) each time it starts,
+and every POST needs it. It also only writes under the directory it was
+started in; pass `--output-root DIR` to choose another. It refuses requests
+that carry an `Origin` header or aren't `application/json`, so a web page
+can't reach it. `--no-auth` turns the token off.
 
 ### Batch mode -- v2 1.5 / 2.4
 

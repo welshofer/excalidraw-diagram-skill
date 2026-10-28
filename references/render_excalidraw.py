@@ -393,7 +393,8 @@ def validate_path(path: Path, kind: str = "input") -> list[str]:
     raw_str = str(path)
     try:
         resolved_str = str(path.resolve())
-    except OSError as e:
+    except (OSError, RuntimeError) as e:
+        # Python < 3.13 raises RuntimeError for a symlink loop.
         errors.append(
             f"Could not resolve path {raw_str!r}: {e}. "
             "Fix: Ensure the path does not contain a symlink cycle."
@@ -1295,6 +1296,7 @@ uv run python render_excalidraw.py --all ./examples
 # Start a persistent server and POST a diagram via curl
 uv run python render_excalidraw.py --server &
 curl -X POST http://127.0.0.1:9120/render \\
+  -H "Authorization: Bearer $(cat ~/.cache/excalidraw-diagram-skill/token)" \\
   -H 'Content-Type: application/json' \\
   -d '{"data": {"type": "excalidraw", "elements": []}, "output": "out.png"}'
 
@@ -1723,12 +1725,20 @@ def main() -> None:
         "--output-root",
         type=Path,
         default=None,
-        help="Restrict server mode writes to paths under this directory (v2 5.6).",
+        help="Restrict server mode writes to paths under this directory "
+        "(default: the current directory) (v2 5.6).",
     )
     parser.add_argument(
         "--auth-token",
         action="store_true",
-        help="Require Bearer token auth for server mode requests (v2 5.4).",
+        help="Require Bearer token auth for server mode requests. This is now the "
+        "default; the flag is kept for compatibility (v2 5.4).",
+    )
+    parser.add_argument(
+        "--no-auth",
+        action="store_true",
+        help="Serve without a Bearer token. Any local process can then render "
+        "into the output root.",
     )
     parser.add_argument(
         "--output",
@@ -1907,7 +1917,7 @@ def main() -> None:
                 port=args.port,
                 output_root=args.output_root,
                 socket_path=args.socket,
-                require_auth=args.auth_token,
+                require_auth=not args.no_auth,
             )
         except RenderError as e:
             logger.error(str(e))
@@ -2184,12 +2194,17 @@ class _RenderServer(http.server.BaseHTTPRequestHandler):
         logger.debug(format % args)
 
     def do_POST(self):
+        if self.path not in ("/render", "/shutdown"):
+            self.send_error(404)
+            return
+        ok, reason = self._check_security()
+        if not ok:
+            self._send_json(403, {"success": False, "error": reason})
+            return
         if self.path == "/render":
             self._handle_render()
-        elif self.path == "/shutdown":
-            self._handle_shutdown()
         else:
-            self.send_error(404)
+            self._handle_shutdown()
 
     def do_GET(self):
         if self.path == "/health":
@@ -2207,29 +2222,28 @@ class _RenderServer(http.server.BaseHTTPRequestHandler):
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "no-referrer")
-        self.send_header("Access-Control-Allow-Origin", "null")
-        self.send_header("Vary", "Origin")
         self.end_headers()
         self.wfile.write(json.dumps(payload).encode())
 
     def _check_security(self) -> tuple[bool, str]:
-        """Enforce Host header, auth token, and Origin policy (v2 5.2, 5.4)."""
+        """Enforce Host, Origin, Content-Type and auth token (v2 5.2, 5.4).
+
+        The server serves no pages, so any request a browser makes to it is
+        cross-origin: one with an Origin header (including the "null" a
+        sandboxed iframe sends) is refused. Requiring application/json means
+        a page can't send a CORS "simple" request that skips the preflight,
+        and the server answers no preflight.
+        """
         host = self.headers.get("Host", "")
         # Allow only 127.0.0.1[:port] or localhost
         host_lower = host.lower().split(":")[0]
         if host_lower not in ("127.0.0.1", "localhost", ""):
             return False, "Invalid Host header"
-        origin = self.headers.get("Origin")
-        if origin and origin != "null":
-            # Only allow same-origin requests
-            from urllib.parse import urlparse
-
-            try:
-                parsed = urlparse(origin)
-                if parsed.hostname not in ("127.0.0.1", "localhost"):
-                    return False, "Cross-origin requests rejected"
-            except Exception:
-                return False, "Malformed Origin header"
+        if self.headers.get("Origin") is not None:
+            return False, "Cross-origin requests rejected"
+        content_type = self.headers.get("Content-Type", "")
+        if content_type.split(";", 1)[0].strip().lower() != "application/json":
+            return False, "Content-Type must be application/json"
         required_token = getattr(_RenderServer, "_auth_token", None)
         if required_token:
             auth = self.headers.get("Authorization", "")
@@ -2238,10 +2252,6 @@ class _RenderServer(http.server.BaseHTTPRequestHandler):
         return True, ""
 
     def _handle_render(self):
-        ok, reason = self._check_security()
-        if not ok:
-            self._send_json(403, {"success": False, "error": reason})
-            return
         try:
             length = int(self.headers.get("Content-Length", 0))
         except (TypeError, ValueError):
@@ -2296,7 +2306,7 @@ class _RenderServer(http.server.BaseHTTPRequestHandler):
             try:
                 resolved = output_path.resolve()
                 root_resolved = Path(output_root).resolve()
-                if not str(resolved).startswith(str(root_resolved)):
+                if not resolved.is_relative_to(root_resolved):
                     self._send_json(
                         403,
                         {
@@ -2305,7 +2315,8 @@ class _RenderServer(http.server.BaseHTTPRequestHandler):
                         },
                     )
                     return
-            except OSError as e:
+            except (OSError, RuntimeError) as e:
+                # Python < 3.13 raises RuntimeError for a symlink loop.
                 self._send_json(400, {"success": False, "error": f"Bad output path: {e}"})
                 return
 
@@ -2389,7 +2400,7 @@ def start_server(
     port: int = DEFAULT_SERVER_PORT,
     output_root: Path | None = None,
     socket_path: str | None = None,
-    require_auth: bool = False,
+    require_auth: bool = True,
 ) -> None:
     """Start a render server with a persistent Playwright browser (1.1).
 
@@ -2399,6 +2410,10 @@ def start_server(
 
     POST /shutdown to stop the server.
     GET  /health for health check.
+
+    Writes are confined to ``output_root``, the current directory when none is
+    given. POSTs need the Bearer token written to
+    ~/.cache/excalidraw-diagram-skill/token unless ``require_auth`` is False.
 
     (v2 1.1) Uses _resolve_template_html() so vendor bundle is honored.
     (v2 1.1) Resizes viewport per request based on diagram bounding box.
@@ -2436,7 +2451,9 @@ def start_server(
 
     _RenderServer._page = page
     _RenderServer._template_html = template_html
-    _RenderServer._output_root = output_root  # (v2 5.6)
+    # (v2 5.6) Writes stay under output_root: the current directory by default.
+    _RenderServer._output_root = Path(output_root or Path.cwd()).resolve()
+    logger.info(f"Server writes confined to {_RenderServer._output_root}")
     _RenderServer._server_ref = None  # set below
 
     # (v2 5.4) Generate auth token if requested, write to cache dir with 0o600.

@@ -62,8 +62,12 @@ Security hardening in the current codebase:
 
 - The HTML template uses a nonce-based CSP (`strict-dynamic`, no
   `'unsafe-inline'`) and the vendor bundle is loaded from a `blob:` URL.
-- The render server rejects cross-origin POSTs, enforces `Host:` header,
-  caps POST body size, and supports `--auth-token` Bearer auth.
+- The render server requires a Bearer token by default (`--no-auth` to
+  opt out), refuses any request with an `Origin` header (including
+  `null`) or a Content-Type other than `application/json`, confines
+  writes to `--output-root` (the start directory by default), enforces
+  the `Host:` header, applies the same checks to `/shutdown`, and caps
+  POST body size.
 - The validator blocks `javascript:`, `data:`, `vbscript:` link schemes
   and protocol-relative URLs (`//evil.com`).
 - Symlink cycles are rejected at `validate_path` time via `os.stat`.
